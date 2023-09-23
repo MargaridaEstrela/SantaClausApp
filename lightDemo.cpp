@@ -34,6 +34,8 @@
 
 #include "avtFreeType.h"
 
+#include "camera.h"
+
 using namespace std;
 
 #define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
@@ -70,8 +72,11 @@ GLint normal_uniformId;
 GLint lPos_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2;
 
-// Camera Position
+// Cameras
+Camera cams[3];
+float camera_dist = 5.0f, camera_height = 5.0f;
 float camX, camY, camZ;
+int activeCam = 0;
 
 // Mouse Tracking Variables
 int startX, startY, tracking = 0;
@@ -88,8 +93,9 @@ float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
 // Sleigh coordinates
 float sleigh_x = 25.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
-float sleigh_speed = 0.0f;
+float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
+float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
 
 void timer(int value)
 {
@@ -101,15 +107,26 @@ void timer(int value)
 	FrameCount = 0;
 
 	//compute motion
-	sleigh_x += sin(sleigh_angle_h * 3.14f / 180) * sleigh_speed * delta_t;
-	sleigh_z += cos(sleigh_angle_v * 3.14f / 180) * sleigh_speed * delta_t;
+	sleigh_direction_x = sin(sleigh_angle_h * 3.14f / 180) * delta_t;
+	sleigh_direction_z = cos(sleigh_angle_v * 3.14f / 180) * delta_t;
+
+	sleigh_x += sleigh_direction_x * sleigh_speed;
+	sleigh_z += sleigh_direction_z * sleigh_speed;
+
+	// set follow sleigh camera position
+	float cam2_x = -sleigh_direction_x * camera_dist;
+	float cam2_y = (-sleigh_direction_y * camera_dist) + camera_height;
+	float cam2_z = -sleigh_direction_z * camera_dist;
+
+	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
+	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
+	cams[2].setCameraType(2);
 
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
 
 void refresh(int value)
 {
-	//PUT YOUR CODE HERE
 	glutPostRedisplay();
 	glutTimerFunc(1000 / 60, refresh, 0);
 }
@@ -178,7 +195,6 @@ void renderHouses(void) {
 	int houseId = 0;
 
 	for (int i = 0; i < 4; ++i) {
-		//for (int j = 0; j < 2; ++j) {
 
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, housesMeshes[houseId].mat.ambient);
@@ -189,6 +205,8 @@ void renderHouses(void) {
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, housesMeshes[houseId].mat.shininess);
 		pushMatrix(MODEL);
+
+		// set position and scale
 		translate(MODEL, 0.0f, 0.0f, i * -8.0f);
 		scale(MODEL, 3.0f, 3.0f, 3.0f);
 
@@ -224,10 +242,15 @@ void renderSleigh(void) {
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, sleighMesh.mat.shininess);
 	pushMatrix(MODEL);
+
+	// set position, rotation and scale
 	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+	rotate(MODEL, -90.0f, 1.0f, 0.0f, 0.0f);
+
 	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
 	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
-	scale(MODEL, 1.0f, 1.0f, 2.0f);
+
+	scale(MODEL, 1.0f, 2.0f, 2.0f);
 
 	// send matrices to OGL
 	computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -249,14 +272,18 @@ void renderScene(void) {
 
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
+
 	// set the camera using a function similar to gluLookAt
-	lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
+		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
+		0, 1, 0);
 
 	// use our shader
-
 	glUseProgram(shader.getProgramIndex());
 
 	//send the light position in eye coordinates
@@ -266,45 +293,7 @@ void renderScene(void) {
 	multMatrixPoint(VIEW, lightPos, res);   //lightPos definido em World Coord so is converted to eye space
 	glUniform4fv(lPos_uniformId, 1, res);
 
-	// remove this part of the code
-
-	/*int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
-
-	for (int i = 0 ; i < 2; ++i) {
-		for (int j = 0; j < 3; ++j) {
-
-			if (j == 2 && i == 1) continue;
-
-			// send the material
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.ambient);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.diffuse);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.specular);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-			glUniform1f(loc, myMeshes[objId].mat.shininess);
-			pushMatrix(MODEL);
-			translate(MODEL, i*2.0f, 0.0f, j*2.0f);
-
-			// send matrices to OGL
-			computeDerivedMatrix(PROJ_VIEW_MODEL);
-			glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-			glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-			computeNormalMatrix3x3();
-			glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-			// Render mesh
-			glBindVertexArray(myMeshes[objId].vao);
-
-			glDrawElements(myMeshes[objId].type, myMeshes[objId].numIndexes, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
-
-			popMatrix(MODEL);
-			objId++;
-		}
-	} */
-
+	// Render objects
 	renderTerrain();
 	renderHouses();
 	renderSleigh();
@@ -320,11 +309,23 @@ void renderScene(void) {
 	//viewer at origin looking down at  negative z direction
 	pushMatrix(MODEL);
 	loadIdentity(MODEL);
+
+	// apply the appropriate camera projection
 	pushMatrix(PROJECTION);
 	loadIdentity(PROJECTION);
+
+	if (activeCam == 1) {
+		// top ortho
+		ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+	}
+	else {
+		float ratio = (1.0f * WinX) / WinY;
+		perspective(53.13f, ratio, 0.1f, 1000.0f);
+	}
+
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
-	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+	
 	// RenderText(shaderText, "This is a sample text", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
 	// RenderText(shaderText, "AVT Light and Text Rendering Demo", 440.0f, 570.0f, 0.5f, 0.3, 0.7f, 0.9f);
 	popMatrix(PROJECTION);
@@ -346,21 +347,61 @@ void renderScene(void) {
 void processKeys(unsigned char key, int xx, int yy)
 {
 	switch (key) {
+		case 27:
+			glutLeaveMainLoop();
+			break;
 
-	case 27:
-		glutLeaveMainLoop();
-		break;
+		case 'c':
+			printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+			break;
 
-	case 'c':
-		printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
-		break;
-	case 'm': glEnable(GL_MULTISAMPLE); break;
-	case 'n': glDisable(GL_MULTISAMPLE); break;
-	case 'a': sleigh_angle_h += delta_h; break;
-	case 'd': sleigh_angle_h -= delta_h; break;
-	case 'w': sleigh_angle_v += delta_v; break;
-	case 's': sleigh_angle_v -= delta_v; break;
-	case 'o': sleigh_speed += delta_s; break;
+		case 'm':
+			glEnable(GL_MULTISAMPLE); 
+			break;
+
+		case 'n': 
+			glDisable(GL_MULTISAMPLE); 
+			break;
+
+		case 'a': 
+			sleigh_angle_h += delta_h; 
+			break;
+
+		case 'd': 
+			sleigh_angle_h -= delta_h; 
+			break;
+
+		case 'w':
+			sleigh_angle_v += delta_v; 
+			break;
+
+		case 's': 
+			sleigh_angle_v -= delta_v; 
+			break;
+
+		case 'o': 
+			sleigh_speed += delta_s;
+
+			if (sleigh_speed > 0) {
+				sleigh_speed -= delta_s * delta_t;
+			} 
+			if (sleigh_speed > max_speed) {
+				sleigh_speed = max_speed;
+			}
+
+			break;
+
+		case '1':
+			activeCam = 0;
+			break;
+
+		case '2':
+			activeCam = 1;
+			break;
+
+		case '3':
+			activeCam = 2;
+			break;
 	}
 
 }
@@ -433,9 +474,11 @@ void processMouseMotion(int xx, int yy)
 			rAux = 0.1f;
 	}
 
-	camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f) + 40.0f;
+	camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
 	camZ = rAux * cos(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
-	camY = rAux * sin(betaAux * 3.14f / 180.0f) + 10.0f;
+	camY = rAux * sin(betaAux * 3.14f / 180.0f);
+
+	cams[activeCam].setCameraPosition(camX, camY, camZ);
 
 	//  uncomment this if not using an idle or refresh func
 	//	glutPostRedisplay();
@@ -448,9 +491,11 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 	if (r < 0.1f)
 		r = 0.1f;
 
-	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f) + 40.0f;
+	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camY = r * sin(beta * 3.14f / 180.0f) + 10.0f;
+	camY = r * sin(beta * 3.14f / 180.0f);
+
+	cams[activeCam].setCameraPosition(camX, camY, camZ);
 
 	//  uncomment this if not using an idle or refresh func
 	//	glutPostRedisplay();
@@ -534,6 +579,23 @@ void init()
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camY = r * sin(beta * 3.14f / 180.0f) + 10.0f;
 
+	std::cout << camX << " " << camY << " " << camZ;
+
+	// set additional camera 1
+	cams[0].setCameraPosition(camX, camY, camZ); // top perspective
+
+	// set additional camera 2
+	cams[1].setCameraPosition(camX, camY, camZ); // top ortho
+	cams[1].type = 1;
+
+	// set additional camera 3
+	float cam2_x = - sleigh_direction_x * camera_dist;
+	float cam2_y = (-sleigh_direction_y * camera_dist) + camera_height;
+	float cam2_z = -sleigh_direction_z * camera_dist;
+
+	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
+	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
+	cams[2].setCameraType(2);
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
@@ -552,7 +614,7 @@ void init()
 	terrainMesh.mat.texCount = texcount;
 
 	// create geometry and VAO of the sleigh
-	amesh = createCube();
+	amesh = createCylinder(1.5f, 0.5f, 20);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
