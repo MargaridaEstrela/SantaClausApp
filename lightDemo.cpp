@@ -54,7 +54,9 @@ const string font_name = "fonts/arial.ttf";
 //Meshes
 vector<struct MyMesh> myMeshes;
 vector<struct MyMesh> housesMeshes;
-MyMesh sleighMesh, terrainMesh;
+vector<struct MyMesh> treesMeshes;
+vector<struct MyMesh> sleighMesh;
+MyMesh terrainMesh;
 
 
 //External array storage defined in AVTmathLib.cpp
@@ -91,7 +93,7 @@ char s[32];
 float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
 
 // Sleigh coordinates
-float sleigh_x = 25.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
+float sleigh_x = 15.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
 float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
@@ -225,47 +227,107 @@ void renderHouses(void) {
 
 		popMatrix(MODEL);
 		houseId++;
-		//}
+	}
+}
+
+void renderTrees(void) {
+
+	GLint loc;
+	int treeId = 0;
+
+	for (int i = 0; i < 5; ++i) {
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, treesMeshes[treeId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, treesMeshes[treeId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, treesMeshes[treeId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, treesMeshes[treeId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// set position and scale
+		translate(MODEL, 2.0f, 0.0f, (i - 0.68f) * -8.0f);
+		scale(MODEL, 3.0f, 3.0f, 3.0f);
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(treesMeshes[treeId].vao);
+
+		glDrawElements(treesMeshes[treeId].type, treesMeshes[treeId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		treeId++;
 	}
 }
 
 void renderSleigh(void) {
 
 	GLint loc;
+	int sleighId = 0;
 
-	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-	glUniform4fv(loc, 1, sleighMesh.mat.ambient);
-	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-	glUniform4fv(loc, 1, sleighMesh.mat.diffuse);
-	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-	glUniform4fv(loc, 1, sleighMesh.mat.specular);
-	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-	glUniform1f(loc, sleighMesh.mat.shininess);
-	pushMatrix(MODEL);
+	for (int i = 0; i < 5; ++i) {
 
-	// set position, rotation and scale
-	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
-	rotate(MODEL, -90.0f, 1.0f, 0.0f, 0.0f);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, sleighMesh[sleighId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, sleighMesh[sleighId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, sleighMesh[sleighId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, sleighMesh[sleighId].mat.shininess);
+		pushMatrix(MODEL);
 
-	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
-	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, 1.0f, 2.0f, 2.0f);
+		if (i == 0) {
+			// set position, rotation and scale
+			translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+			rotate(MODEL, -90.0f, 1.0f, 0.0f, 0.0f);
+		}
+		else {
+			if (i % 2) {
+				translate(MODEL, sleigh_x + 1.0f, sleigh_y - 0.7f, sleigh_z + pow(-1.0f, i / 2)  * 0.6f);
+			}
+			else {
+				translate(MODEL, sleigh_x - 1.0f, sleigh_y - 0.7f, sleigh_z - pow(-1.0f, i / 2) * 0.6f);
+			}
+			rotate(MODEL, 180.0f, 1.0f, 1.0f, 0.0f);
+		}
 
-	// send matrices to OGL
-	computeDerivedMatrix(PROJ_VIEW_MODEL);
-	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-	computeNormalMatrix3x3();
-	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+		rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+		rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	// Render mesh
-	glBindVertexArray(sleighMesh.vao);
+		if (i == 0) {
+			scale(MODEL, 2.0f, 2.0f, 2.0f);
+		}
+		else {
+			scale(MODEL, 1.0f, 0.1f, 1.0f);
+		}
 
-	glDrawElements(sleighMesh.type, sleighMesh.numIndexes, GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
-	popMatrix(MODEL);
+		// Render mesh
+		glBindVertexArray(sleighMesh[sleighId].vao);
+
+		glDrawElements(sleighMesh[sleighId].type, sleighMesh[sleighId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		sleighId++;
+	}
 }
 
 void renderScene(void) {
@@ -296,6 +358,7 @@ void renderScene(void) {
 	// Render objects
 	renderTerrain();
 	renderHouses();
+	renderTrees();
 	renderSleigh();
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
@@ -613,15 +676,17 @@ void init()
 	terrainMesh.mat.shininess = shininess;
 	terrainMesh.mat.texCount = texcount;
 
-	// create geometry and VAO of the sleigh
-	amesh = createCylinder(1.5f, 0.5f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	sleighMesh = amesh;
+	for (int i = 0; i < 5; i++) {
+		// create geometry and VAO of the sleigh
+		amesh = createCylinder(1.5f, 0.5f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		sleighMesh.push_back(amesh);
+	}
 
 	/*
 
@@ -661,7 +726,7 @@ void init()
 	myMeshes.push_back(amesh); */
 
 	for (int i = 0; i < 4; i++) {
-		// create geometry and VAO of the cube for the house
+		// create geometry and VAO of the cube for each house
 		amesh = createCube();
 		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
@@ -670,6 +735,18 @@ void init()
 		amesh.mat.shininess = shininess;
 		amesh.mat.texCount = texcount;
 		housesMeshes.push_back(amesh);
+	}
+
+	for (int i = 0; i < 5; i++) {
+		// create geometry and VAO of the cone for each tree
+		amesh = createCone(1.0f, 0.3f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		treesMeshes.push_back(amesh);
 	}
 
 	// some GL settings
