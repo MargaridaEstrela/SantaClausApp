@@ -109,16 +109,16 @@ void timer(int value)
 	FrameCount = 0;
 
 	//compute motion
-	sleigh_direction_x = sin(sleigh_angle_h * 3.14f / 180) * delta_t;
-	sleigh_direction_z = cos(sleigh_angle_v * 3.14f / 180) * delta_t;
+	sleigh_direction_x = sin(sleigh_angle_h * 3.14f / 180);
+	sleigh_direction_z = cos(sleigh_angle_v * 3.14f / 180);
 
-	sleigh_x += sleigh_direction_x * sleigh_speed;
-	sleigh_z += sleigh_direction_z * sleigh_speed;
+	sleigh_x += sleigh_direction_x * sleigh_speed * delta_t;
+	sleigh_z += sleigh_direction_z * sleigh_speed * delta_t;
 
 	// set follow sleigh camera position
-	float cam2_x = -sleigh_direction_x * camera_dist;
-	float cam2_y = (-sleigh_direction_y * camera_dist) + camera_height;
-	float cam2_z = -sleigh_direction_z * camera_dist;
+	float cam2_x = sleigh_x -sleigh_direction_x * camera_dist;
+	float cam2_y = sleigh_y + sleigh_direction_y * camera_dist + camera_height;
+	float cam2_z = sleigh_z -sleigh_direction_z * camera_dist;
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
@@ -284,26 +284,26 @@ void renderSleigh(void) {
 		glUniform4fv(loc, 1, sleighMesh[sleighId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, sleighMesh[sleighId].mat.shininess);
+
 		pushMatrix(MODEL);
 
+		translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+		rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+		rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
 		if (i == 0) {
-			// set position, rotation and scale
-			translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+			// set position, rotation and scale for the main part
 			rotate(MODEL, -90.0f, 1.0f, 0.0f, 0.0f);
 		}
 		else {
 			if (i % 2) {
-				translate(MODEL, sleigh_x + 1.0f, sleigh_y - 0.7f, sleigh_z + pow(-1.0f, i / 2)  * 0.6f);
+				translate(MODEL, 1.0f, - 0.7f,  pow(-1.0f, i / 2) * 0.6f);
 			}
 			else {
-				translate(MODEL, sleigh_x - 1.0f, sleigh_y - 0.7f, sleigh_z - pow(-1.0f, i / 2) * 0.6f);
+				translate(MODEL, - 1.0f, - 0.7f, - (pow(-1.0f, i / 2) * 0.6f));
 			}
 			rotate(MODEL, 180.0f, 1.0f, 1.0f, 0.0f);
 		}
-
-		rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
-		rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
 		if (i == 0) {
 			scale(MODEL, 2.0f, 2.0f, 2.0f);
