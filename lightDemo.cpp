@@ -71,7 +71,7 @@ extern float mNormal3x3[9];
 GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
-GLint lPos_uniformId;
+GLint global_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2;
 GLint pointLight_uniformId[10];
 
@@ -160,7 +160,7 @@ void changeSize(int w, int h) {
 	// set the projection matrix
 	ratio = (1.0f * w) / h;
 	loadIdentity(PROJECTION);
-	perspective(53.13f, ratio, 0.1f, 1000.0f);
+	//perspective(53.13f, ratio, 0.1f, 1000.0f);
 }
 
 // ------------------------------------------------------------
@@ -172,7 +172,7 @@ void setPointLights() {
 	pointLight[0] = Light(20.0f, 6.0f, -30.0f, 1.0f);
 	pointLight[1] = Light(20.0f, 6.0f, -24.0f, 1.0f);
 	pointLight[2] = Light(20.0f, 6.0f, -18.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 6.0f, -12.0f, 1.0f);
+	pointLight[3] = Light(20.0f, 6.0f, -12.0f, 1.0f);	
 	pointLight[4] = Light(20.0f, 6.0f, -6.0f, 1.0f);
 	pointLight[5] = Light(20.0f, 6.0f, 0.0f, 1.0f);
 	pointLight[6] = Light(20.0f, 6.0f, 6.0f, 1.0f);
@@ -181,7 +181,7 @@ void setPointLights() {
 	pointLight[9] = Light(20.0f, 6.0f, 24.0f, 1.0f);
 
 	for (int i = 0; i < n_pointLights; i++) {
-		string lightPosName = "pointLights[" + std::to_string(i) + "].position";
+		string lightPosName = "pointLights[" + std::to_string(i) + "]";
 		pointLight_uniformId[i] = glGetUniformLocation(shader.getProgramIndex(), lightPosName.c_str());
 	}
 }
@@ -403,9 +403,34 @@ void renderScene(void) {
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	pushMatrix(VIEW);
+	pushMatrix(MODEL);
+
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
+
+	// apply the appropriate camera projection
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+
+	float ratio = (1.0f * WinX) / WinY;
+
+	if (cams[activeCam].getCameraType() == 1) {
+		std::cout << "ortho" << std::endl;
+		// top ortho
+		ortho(-18.0f * ratio, 18.0f * ratio, -18.0f * ratio, 18.0f * ratio, -1, 1000);
+	}
+	else {
+		std::cout << "pers " << WinX << " " << WinY << std::endl;
+
+		
+		std::cout << ratio << std::endl;
+		perspective(53.13f, ratio, 0.1f, 1000.0f);
+	}
 
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
@@ -420,6 +445,7 @@ void renderScene(void) {
 	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
 
 	// Set pointLights
+	
 	float res[4];
 	for (int i = 0; i < 10; i++) {
 		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
@@ -436,7 +462,7 @@ void renderScene(void) {
 
 	// Set global light
 	multMatrixPoint(VIEW, globalLight.getPosition(), res);
-	glUniform4fv(lPos_uniformId, 1, res);
+	glUniform4fv(global_uniformId, 1, res);
 
 	// Render objects
 	renderTerrain();
@@ -444,37 +470,11 @@ void renderScene(void) {
 	renderTrees();
 	renderSleigh();
 
-	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
-	glDisable(GL_DEPTH_TEST);
-	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	int m_viewport[4];
-	glGetIntegerv(GL_VIEWPORT, m_viewport);
-
-	//viewer at origin looking down at  negative z direction
-	pushMatrix(MODEL);
-	loadIdentity(MODEL);
-
-	// apply the appropriate camera projection
-	pushMatrix(PROJECTION);
-	loadIdentity(PROJECTION);
-	
-
-	if (cams[activeCam].getCameraType() == 1) {
-		// top ortho
-		ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
-	}
-	else {
-		float ratio = (1.0f * WinX) / WinY;
-		perspective(53.13f, ratio, 0.1f, 1000.0f);
-	}
+	std::cout << "render1" << std::endl;
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
-	
-	// RenderText(shaderText, "This is a sample text", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
-	// RenderText(shaderText, "AVT Light and Text Rendering Demo", 440.0f, 570.0f, 0.5f, 0.3, 0.7f, 0.9f);
+
 	popMatrix(PROJECTION);
 	popMatrix(VIEW);
 	popMatrix(MODEL);
@@ -482,6 +482,7 @@ void renderScene(void) {
 	glDisable(GL_BLEND);
 
 	glutSwapBuffers();
+	std::cout << "render2" << std::endl;
 }
 
 
@@ -687,10 +688,11 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
+	global_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+
 
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
@@ -739,11 +741,12 @@ void init()
 	camY = r * sin(beta * 3.14f / 180.0f);
 
 	// set additional camera 1
-	cams[0].setCameraPosition(camX, camY + 50.0f, camZ); // top perspective
+	cams[0].setCameraPosition(camX, 60.0f, camZ); // top perspective
 	cams[0].setCameraTarget(0.0f, 0.0f, -10.0f);
+	cams[0].setCameraType(0);
 
 	// set additional camera 2
-	cams[1].setCameraPosition(camX, camY + 50.0f, camZ); // top ortho
+	cams[1].setCameraPosition(0.1f, 50.0f, 0.0f); // top ortho
 	cams[1].setCameraTarget(0.0f, 0.0f, -10.0f);
 	cams[1].setCameraType(1);
 
@@ -754,7 +757,7 @@ void init()
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
-	cams[2].setCameraType(2);
+	cams[2].setCameraType(0);
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
