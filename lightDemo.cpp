@@ -35,6 +35,7 @@
 #include "avtFreeType.h"
 
 #include "camera.h"
+#include "snowball.h"
 
 using namespace std;
 
@@ -57,6 +58,9 @@ vector<struct MyMesh> housesMeshes;
 vector<struct MyMesh> treesMeshes;
 vector<struct MyMesh> sleighMesh;
 MyMesh terrainMesh;
+vector<struct MyMesh> snowballMeshes;
+vector<struct Snowball> snowballs;
+int snowball_num = 30;
 
 
 //External array storage defined in AVTmathLib.cpp
@@ -99,6 +103,8 @@ float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
 float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
 
+// Snowball accelaration
+
 void timer(int value)
 {
 	std::ostringstream oss;
@@ -115,10 +121,27 @@ void timer(int value)
 	sleigh_x += sleigh_direction_x * sleigh_speed * delta_t;
 	sleigh_z += sleigh_direction_z * sleigh_speed * delta_t;
 
+	for (int i = 0; i < snowball_num; ++i) {
+		snowballs[i].updateSnowballPosition(delta_t);
+		if (snowballs[i].speed > 0) {
+			snowballs[i].speed += 0.01f;
+		}
+		else {
+			snowballs[i].speed -= 0.005f;
+		}
+
+		if (snowballs[i].getSnowballPosition()[0] > 50.0f ||
+			snowballs[i].getSnowballPosition()[0] < -50.0f ||
+			snowballs[i].getSnowballPosition()[1] > 50.0f ||
+			snowballs[i].getSnowballPosition()[1] < -50.0f) {
+			snowballs[i].generateRandomParameters(50.0f);
+		}
+	}
+
 	// set follow sleigh camera position
-	float cam2_x = sleigh_x -sleigh_direction_x * camera_dist;
+	float cam2_x = sleigh_x - sleigh_direction_x * camera_dist;
 	float cam2_y = sleigh_y + sleigh_direction_y * camera_dist + camera_height;
-	float cam2_z = sleigh_z -sleigh_direction_z * camera_dist;
+	float cam2_z = sleigh_z - sleigh_direction_z * camera_dist;
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
@@ -297,10 +320,10 @@ void renderSleigh(void) {
 		}
 		else {
 			if (i % 2) {
-				translate(MODEL, 1.0f, - 0.7f,  pow(-1.0f, i / 2) * 0.6f);
+				translate(MODEL, 1.0f, -0.7f, pow(-1.0f, i / 2) * 0.6f);
 			}
 			else {
-				translate(MODEL, - 1.0f, - 0.7f, - (pow(-1.0f, i / 2) * 0.6f));
+				translate(MODEL, -1.0f, -0.7f, -(pow(-1.0f, i / 2) * 0.6f));
 			}
 			rotate(MODEL, 180.0f, 1.0f, 1.0f, 0.0f);
 		}
@@ -327,6 +350,42 @@ void renderSleigh(void) {
 
 		popMatrix(MODEL);
 		sleighId++;
+	}
+}
+
+void renderSnowballs(void) {
+	GLint loc;
+
+	for (int i = 0; i < snowball_num; ++i) {
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, snowballMeshes[i].mat.shininess);
+		pushMatrix(MODEL);
+
+		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
+		// rotate in the direction of the movement
+		rotate(MODEL, atan2(snowballs[i].direction[1], snowballs[i].direction[0]) * 180.0f / 3.14f, 0.0f, 1.0f, 0.0f);
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(snowballMeshes[i].vao);
+
+		glDrawElements(snowballMeshes[i].type, snowballMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
 	}
 }
 
@@ -360,6 +419,7 @@ void renderScene(void) {
 	renderHouses();
 	renderTrees();
 	renderSleigh();
+	renderSnowballs();
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -388,7 +448,7 @@ void renderScene(void) {
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
-	
+
 	// RenderText(shaderText, "This is a sample text", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
 	// RenderText(shaderText, "AVT Light and Text Rendering Demo", 440.0f, 570.0f, 0.5f, 0.3, 0.7f, 0.9f);
 	popMatrix(PROJECTION);
@@ -410,61 +470,61 @@ void renderScene(void) {
 void processKeys(unsigned char key, int xx, int yy)
 {
 	switch (key) {
-		case 27:
-			glutLeaveMainLoop();
-			break;
+	case 27:
+		glutLeaveMainLoop();
+		break;
 
-		case 'c':
-			printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
-			break;
+	case 'c':
+		printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+		break;
 
-		case 'm':
-			glEnable(GL_MULTISAMPLE); 
-			break;
+	case 'm':
+		glEnable(GL_MULTISAMPLE);
+		break;
 
-		case 'n': 
-			glDisable(GL_MULTISAMPLE); 
-			break;
+	case 'n':
+		glDisable(GL_MULTISAMPLE);
+		break;
 
-		case 'a': 
-			sleigh_angle_h += delta_h; 
-			break;
+	case 'a':
+		sleigh_angle_h += delta_h;
+		break;
 
-		case 'd': 
-			sleigh_angle_h -= delta_h; 
-			break;
+	case 'd':
+		sleigh_angle_h -= delta_h;
+		break;
 
-		case 'w':
-			sleigh_angle_v += delta_v; 
-			break;
+	case 'w':
+		sleigh_angle_v += delta_v;
+		break;
 
-		case 's': 
-			sleigh_angle_v -= delta_v; 
-			break;
+	case 's':
+		sleigh_angle_v -= delta_v;
+		break;
 
-		case 'o': 
-			sleigh_speed += delta_s;
+	case 'o':
+		sleigh_speed += delta_s;
 
-			if (sleigh_speed > 0) {
-				sleigh_speed -= delta_s * delta_t;
-			} 
-			if (sleigh_speed > max_speed) {
-				sleigh_speed = max_speed;
-			}
+		if (sleigh_speed > 0) {
+			sleigh_speed -= delta_s * delta_t;
+		}
+		if (sleigh_speed > max_speed) {
+			sleigh_speed = max_speed;
+		}
 
-			break;
+		break;
 
-		case '1':
-			activeCam = 0;
-			break;
+	case '1':
+		activeCam = 0;
+		break;
 
-		case '2':
-			activeCam = 1;
-			break;
+	case '2':
+		activeCam = 1;
+		break;
 
-		case '3':
-			activeCam = 2;
-			break;
+	case '3':
+		activeCam = 2;
+		break;
 	}
 
 }
@@ -652,7 +712,7 @@ void init()
 	cams[1].type = 1;
 
 	// set additional camera 3
-	float cam2_x = - sleigh_direction_x * camera_dist;
+	float cam2_x = -sleigh_direction_x * camera_dist;
 	float cam2_y = (-sleigh_direction_y * camera_dist) + camera_height;
 	float cam2_z = -sleigh_direction_z * camera_dist;
 
@@ -747,6 +807,21 @@ void init()
 		amesh.mat.shininess = shininess;
 		amesh.mat.texCount = texcount;
 		treesMeshes.push_back(amesh);
+	}
+
+	for (int i = 0; i < snowball_num; i++) {
+		// create geometry and VAO of the sphere for each snowball
+		amesh = createSphere(0.3f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		snowballMeshes.push_back(amesh);
+
+		Snowball s = Snowball(50.0f);
+		snowballs.push_back(s);
 	}
 
 	// some GL settings
