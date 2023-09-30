@@ -36,6 +36,7 @@
 
 #include "camera.h"
 #include "light.h"
+#include "snowball.h"
 
 using namespace std;
 
@@ -58,6 +59,8 @@ vector<struct MyMesh> housesMeshes;
 vector<struct MyMesh> treesMeshes;
 vector<struct MyMesh> sleighMesh;
 MyMesh terrainMesh;
+vector<struct MyMesh> snowballMeshes;
+vector<struct Snowball> snowballs;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -77,6 +80,9 @@ GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, point
 GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
+
+// Snowballs
+int snowball_num = 30;
 
 // Cameras
 Camera cams[3];
@@ -139,6 +145,23 @@ void timer(int value)
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(2);
+
+	for (int i = 0; i < snowball_num; ++i) {
+		snowballs[i].updateSnowballPosition(delta_t);
+		if (snowballs[i].speed > 0) {
+			snowballs[i].speed += 0.01f;
+		}
+		else {
+			snowballs[i].speed -= 0.005f;
+		}
+
+		if (snowballs[i].getSnowballPosition()[0] > 50.0f ||
+			snowballs[i].getSnowballPosition()[0] < -50.0f ||
+			snowballs[i].getSnowballPosition()[1] > 50.0f ||
+			snowballs[i].getSnowballPosition()[1] < -50.0f) {
+			snowballs[i].generateRandomParameters(50.0f);
+		}
+	}
 
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
@@ -386,6 +409,42 @@ void renderSleigh(void) {
 	}
 }
 
+void renderSnowballs(void) {
+	GLint loc;
+
+	for (int i = 0; i < snowball_num; ++i) {
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, snowballMeshes[i].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, snowballMeshes[i].mat.shininess);
+		pushMatrix(MODEL);
+
+		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
+		// rotate in the direction of the movement
+		rotate(MODEL, atan2(snowballs[i].direction[1], snowballs[i].direction[0]) * 180.0f / 3.14f, 0.0f, 1.0f, 0.0f);
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(snowballMeshes[i].vao);
+
+		glDrawElements(snowballMeshes[i].type, snowballMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+	}
+}
+
 void renderScene(void) {
 
 	FrameCount++;
@@ -467,6 +526,7 @@ void renderScene(void) {
 	renderHouses();
 	renderTrees();
 	renderSleigh();
+	renderSnowballs();
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
@@ -864,6 +924,21 @@ void init()
 		amesh.mat.shininess = shininess;
 		amesh.mat.texCount = texcount;
 		treesMeshes.push_back(amesh);
+	}
+
+	for (int i = 0; i < snowball_num; i++) {
+		// create geometry and VAO of the sphere for each snowball
+		amesh = createSphere(0.3f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		snowballMeshes.push_back(amesh);
+
+		Snowball s = Snowball(50.0f);
+		snowballs.push_back(s);
 	}
 
 	// some GL settings
