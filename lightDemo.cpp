@@ -156,14 +156,15 @@ void timer(int value)
 		}
 	}
 
-	// set follow sleigh camera position
-	float cam2_x = sleigh_x + sleigh_direction_x * camera_dist;
-	float cam2_y = sleigh_y + sleigh_direction_y * camera_dist + camera_height;
-	float cam2_z = sleigh_z + sleigh_direction_z * camera_dist;
+	if (tracking == 0) {
+		// set follow sleigh camera position
+		float cam2_x = sleigh_x + sleigh_direction_x * camera_dist;
+		float cam2_y = sleigh_y + sleigh_direction_y * camera_dist + camera_height;
+		float cam2_z = sleigh_z + sleigh_direction_z * camera_dist;
 
-	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
-	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
-	cams[2].setCameraType(2);
+		cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
+		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
+	}
 
 	for (int i = 0; i < snowball_num; ++i) {
 		snowballs[i].updateSnowballPosition(delta_t);
@@ -579,28 +580,28 @@ void processKeys(unsigned char key, int xx, int yy)
 		glutLeaveMainLoop();
 		break;
 
-		case 'c':
-			//printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
-			pointLightsOn = !pointLightsOn;
-			printf("PointLights %s\n", pointLightsOn ? "ON" : "OFF");
-			changePointLightsMode();
-			break;
+	case 'c':
+		//printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+		pointLightsOn = !pointLightsOn;
+		printf("PointLights %s\n", pointLightsOn ? "ON" : "OFF");
+		changePointLightsMode();
+		break;
 
 	case 'm':
 		glEnable(GL_MULTISAMPLE);
 		break;
 
-		case 'h':
-			spotLightsOn = !spotLightsOn;
-			printf("Spotlights %s\n", spotLightsOn ? "ON" : "OFF");
-			changeSpotlightsMode();
-			break;
+	case 'h':
+		spotLightsOn = !spotLightsOn;
+		printf("Spotlights %s\n", spotLightsOn ? "ON" : "OFF");
+		changeSpotlightsMode();
+		break;
 
-		case 'n': 
-			directionalLightOn = !directionalLightOn;
-			printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
-			changeDirectionalLightMode();
-			break;
+	case 'n': 
+		directionalLightOn = !directionalLightOn;
+		printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
+		changeDirectionalLightMode();
+		break;
 
 	case 'a':
 		sleigh_angle_h += delta_h;
@@ -621,13 +622,13 @@ void processKeys(unsigned char key, int xx, int yy)
 	case 'o':
 		sleigh_speed += delta_s;
 
-			if (sleigh_speed > 0) {
-				sleigh_speed -= delta_s * delta_t;
-			} 
-			if (sleigh_speed > max_speed) {
-				sleigh_speed = max_speed;
-			}
-			break;
+		if (sleigh_speed > 0) {
+			sleigh_speed -= delta_s * delta_t;
+		} 
+		if (sleigh_speed > max_speed) {
+			sleigh_speed = max_speed;
+		}
+		break;
 
 	case '1':
 		activeCam = 0;
@@ -674,6 +675,8 @@ void processMouseButtons(int button, int state, int xx, int yy)
 				r = 0.1f;
 		}
 		tracking = 0;
+
+
 	}
 }
 
@@ -691,7 +694,6 @@ void processMouseMotion(int xx, int yy)
 
 	// left mouse button: move camera
 	if (tracking == 1) {
-
 
 		alphaAux = alpha + deltaX;
 		betaAux = beta + deltaY;
@@ -712,7 +714,7 @@ void processMouseMotion(int xx, int yy)
 			rAux = 0.1f;
 	}
 
-	if (activeCam == 2) {
+	if (activeCam == 2 && tracking == 1) {
 		camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
 		camZ = rAux * cos(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
 		camY = rAux * sin(betaAux * 3.14f / 180.0f);
@@ -731,7 +733,7 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 	if (r < 0.1f)
 		r = 0.1f;
 
-	if (activeCam == 2) {
+	if (activeCam == 2 && tracking == 1) {
 		camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 		camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 		camY = r * sin(beta * 3.14f / 180.0f);
