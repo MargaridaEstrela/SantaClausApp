@@ -14,7 +14,7 @@ struct Materials {
 uniform Materials mat;
 
 uniform vec4 spotDir;
-const float spotCutOff = 0.5;
+const float spotCutOff = 0.7;
 
 uniform bool directionalLightOn;
 uniform bool pointLightsOn;
@@ -43,11 +43,12 @@ void main() {
 		if (i >= 1 && i < 7 && !pointLightsOn) continue;
 		if (i >= 7 && !spotLightsOn) break;
 
+		float attenuation = 1.0;
 		vec3 l = normalize(DataIn.lightDir[i]);
 		
 		float intensity = 0.0f;
-		if (i != 0) {
-			intensity = max(dot(n,l), 0.0) * 0.1f;
+		if ((i >= 1 && i < 7 )) {
+			intensity = max(dot(n,l), 0.0) * 0.1;
 		} else {
 			intensity = max(dot(n,l), 0.0);
 		}

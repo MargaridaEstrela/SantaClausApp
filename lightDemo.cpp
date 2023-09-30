@@ -97,8 +97,8 @@ char s[32];
 
 //Lights
 bool directionalLightOn = true;
-bool pointLightsOn = true;
-bool spotLightsOn = true;
+bool pointLightsOn = false;
+bool spotLightsOn = false;
 const int n_pointLights = 6;
 const int n_spotlights = 2;
 Light directionalLight;
@@ -183,16 +183,12 @@ void setPointLights() {
 }
 
 void setSpotLights() {
-	float posX = sleigh_x - sleigh_direction_x * 0.75;
-	float posY = sleigh_y - sleigh_direction_y * 0.75 + 2.0f;
-	float posZ = sleigh_z - sleigh_direction_z * 0.75;
+	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 0.5f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 0.5f, 1.0f);
 
-	spotlight[0] = Light(sleigh_x - 0.5f, sleigh_y, sleigh_z - 1.5f, 1.0f);
-	spotlight[1] = Light(sleigh_x + 0.5f, sleigh_y, sleigh_z - 1.5f, 1.0f);
-
-	spotDir[0] = sleigh_direction_x;
-	spotDir[1] = sleigh_direction_y;
-	spotDir[2] = sleigh_direction_z;
+	spotDir[0] = -sleigh_direction_x;
+	spotDir[1] = -sleigh_direction_y;
+	spotDir[2] = -sleigh_direction_z;
 	spotDir[3] = 0.0f;
 }
 
