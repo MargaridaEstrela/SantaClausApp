@@ -173,12 +173,12 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(20.0f, 10.0f, -30.0f, 1.0f);
-	pointLight[1] = Light(20.0f, 10.0f, -20.0f, 1.0f);
-	pointLight[2] = Light(20.0f, 10.0f, -10.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 10.0f, 0.0f, 1.0f);
-	pointLight[4] = Light(20.0f, 10.0f, 10.0f, 1.0f);
-	pointLight[5] = Light(20.0f, 10.0f, 30.0f, 1.0f);
+	pointLight[0] = Light(30.0f, 10.0f, -40.0f, 1.0f);
+	pointLight[1] = Light(30.0f, 10.0f, -30.0f, 1.0f);
+	pointLight[2] = Light(30.0f, 10.0f, -20.0f, 1.0f);
+	pointLight[3] = Light(30.0f, 10.0f, -10.0f, 1.0f);
+	pointLight[4] = Light(30.0f, 10.0f, 0.0f, 1.0f);
+	pointLight[5] = Light(30.0f, 10.0f, 10.0f, 1.0f);
 }
 
 void setSpotLights() {
@@ -445,12 +445,12 @@ void renderScene(void) {
 		//glUniform4fv(pointLight_uniformId[i], 1, res);
 	}
 	
-	glUniform4fv(pointLight1_uniformId, 1, pointLight[1].getEye());
-	glUniform4fv(pointLight2_uniformId, 1, pointLight[2].getEye());
-	glUniform4fv(pointLight3_uniformId, 1, pointLight[3].getEye());
-	glUniform4fv(pointLight4_uniformId, 1, pointLight[4].getEye());
-	glUniform4fv(pointLight5_uniformId, 1, pointLight[5].getEye());
-	glUniform4fv(pointLight6_uniformId, 1, pointLight[6].getEye());
+	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
+	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
+	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
+	glUniform4fv(pointLight4_uniformId, 1, pointLight[3].getEye());
+	glUniform4fv(pointLight5_uniformId, 1, pointLight[4].getEye());
+	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
 
 	// Set spotlights
 	/*
