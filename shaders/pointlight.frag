@@ -15,6 +15,10 @@ uniform Materials mat;
 
 uniform vec4 spotDir;
 const float spotCutOff = 0.7;
+const float spotExpo = 80.0f;
+
+const float linear = 0.1;
+const float expo = 0.1;
 
 uniform bool directionalLightOn;
 uniform bool pointLightsOn;
@@ -45,17 +49,19 @@ void main() {
 
 		float attenuation = 1.0;
 		vec3 l = normalize(DataIn.lightDir[i]);
-		
-		float intensity = 0.0f;
-		if ((i >= 1 && i < 7 )) {
-			intensity = max(dot(n,l), 0.0) * 0.1;
-		} else {
-			intensity = max(dot(n,l), 0.0);
+
+		if (i != 0) {
+			float dl = length(DataIn.lightDir[i]); // distance to light
+			attenuation += linear * dl + expo * dl * dl;
 		}
+		
+		float intensity = max(dot(n,l), 0.0);
 
 		if (i >= 7) {
+			attenuation += 0.1;
 			vec3 sd = normalize(vec3(-spotDir));
 			if (dot(sd, l) < spotCutOff) intensity = 0.0;
+			else attenuation = 1 / pow(dot(sd, l), spotExpo);
 		}
 	
 		if (intensity > 0.0) {
@@ -64,7 +70,7 @@ void main() {
 			spec = mat.specular * pow(intSpec, mat.shininess);
 		}
 	
-		colorOut += max(intensity * mat.diffuse + spec, mat.ambient);
+		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 	}
 
 }

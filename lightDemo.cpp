@@ -174,17 +174,17 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(30.0f, 10.0f, -40.0f, 1.0f);
-	pointLight[1] = Light(30.0f, 10.0f, -30.0f, 1.0f);
-	pointLight[2] = Light(30.0f, 10.0f, -20.0f, 1.0f);
-	pointLight[3] = Light(30.0f, 10.0f, -10.0f, 1.0f);
-	pointLight[4] = Light(30.0f, 10.0f, 0.0f, 1.0f); 
-	pointLight[5] = Light(30.0f, 10.0f, 10.0f, 1.0f);
+	pointLight[0] = Light(30.0f, 10.0f, -50.0f, 1.0f);
+	pointLight[1] = Light(30.0f, 10.0f, -40.0f, 1.0f);
+	pointLight[2] = Light(30.0f, 10.0f, -30.0f, 1.0f);
+	pointLight[3] = Light(30.0f, 10.0f, -20.0f, 1.0f);
+	pointLight[4] = Light(30.0f, 10.0f, -10.0f, 1.0f); 
+	pointLight[5] = Light(30.0f, 10.0f, 0.0f, 1.0f);
 }
 
 void setSpotLights() {
-	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 0.5f, 1.0f);
-	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 0.5f, 1.0f);
+	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
 
 	spotDir[0] = -sleigh_direction_x;
 	spotDir[1] = -sleigh_direction_y;
