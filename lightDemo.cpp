@@ -35,6 +35,7 @@
 #include "avtFreeType.h"
 
 #include "camera.h"
+#include "light.h"
 #include "snowball.h"
 
 using namespace std;
@@ -60,8 +61,6 @@ vector<struct MyMesh> sleighMesh;
 MyMesh terrainMesh;
 vector<struct MyMesh> snowballMeshes;
 vector<struct Snowball> snowballs;
-int snowball_num = 30;
-
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -75,12 +74,19 @@ extern float mNormal3x3[9];
 GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
-GLint lPos_uniformId;
+GLint directional_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2;
+GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
+GLint spotLightL_uniformId, spotLightR_uniformId;
+GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
+GLint spotDir_uniformId;
+
+// Snowballs
+int snowball_num = 30;
 
 // Cameras
 Camera cams[3];
-float camera_dist = 5.0f, camera_height = 5.0f;
+float camera_dist = 5.0f, camera_height = 2.0f;
 float camX, camY, camZ;
 int activeCam = 0;
 
@@ -88,13 +94,23 @@ int activeCam = 0;
 int startX, startY, tracking = 0;
 
 // Camera Spherical Coordinates
-float alpha = 45.0f, beta = 10.0f;
+float alpha = 0.0f, beta = 90.0f;
 float r = 10.0f;
 
 // Frame counting and FPS computation
 long myTime, timebase = 0, frame = 0;
 char s[32];
-float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
+
+//Lights
+bool directionalLightOn = true;
+bool pointLightsOn = false;
+bool spotLightsOn = false;
+const int n_pointLights = 6;
+const int n_spotlights = 2;
+Light directionalLight;
+Light pointLight[n_pointLights];
+Light spotlight[n_spotlights];
+float spotDir[4];
 
 // Sleigh coordinates
 float sleigh_x = 15.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
@@ -116,10 +132,12 @@ void timer(int value)
 
 	//compute motion
 	sleigh_direction_x = sin(sleigh_angle_h * 3.14f / 180);
-	sleigh_direction_z = cos(sleigh_angle_v * 3.14f / 180);
+	sleigh_direction_y = - sin(sleigh_angle_v * 3.14 / 180);
+	sleigh_direction_z = cos(sleigh_angle_h * 3.14f / 180);
 
-	sleigh_x += sleigh_direction_x * sleigh_speed * delta_t;
-	sleigh_z += sleigh_direction_z * sleigh_speed * delta_t;
+	sleigh_x -= sleigh_direction_x * sleigh_speed * delta_t;
+	sleigh_y -= sleigh_direction_y * sleigh_speed * delta_t;
+	sleigh_z -= sleigh_direction_z * sleigh_speed * delta_t;
 
 	for (int i = 0; i < snowball_num; ++i) {
 		snowballs[i].updateSnowballPosition(delta_t);
@@ -139,13 +157,30 @@ void timer(int value)
 	}
 
 	// set follow sleigh camera position
-	float cam2_x = sleigh_x - sleigh_direction_x * camera_dist;
+	float cam2_x = sleigh_x + sleigh_direction_x * camera_dist;
 	float cam2_y = sleigh_y + sleigh_direction_y * camera_dist + camera_height;
-	float cam2_z = sleigh_z - sleigh_direction_z * camera_dist;
+	float cam2_z = sleigh_z + sleigh_direction_z * camera_dist;
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(2);
+
+	for (int i = 0; i < snowball_num; ++i) {
+		snowballs[i].updateSnowballPosition(delta_t);
+		if (snowballs[i].speed > 0) {
+			snowballs[i].speed += 0.01f;
+		}
+		else {
+			snowballs[i].speed -= 0.005f;
+		}
+
+		if (snowballs[i].getSnowballPosition()[0] > 50.0f ||
+			snowballs[i].getSnowballPosition()[0] < -50.0f ||
+			snowballs[i].getSnowballPosition()[1] > 50.0f ||
+			snowballs[i].getSnowballPosition()[1] < -50.0f) {
+			snowballs[i].generateRandomParameters(50.0f);
+		}
+	}
 
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
@@ -173,6 +208,46 @@ void changeSize(int w, int h) {
 	ratio = (1.0f * w) / h;
 	loadIdentity(PROJECTION);
 	perspective(53.13f, ratio, 0.1f, 1000.0f);
+}
+
+// ------------------------------------------------------------
+//
+// Lights stuff
+//
+
+void setPointLights() {
+	pointLight[0] = Light(30.0f, 10.0f, -50.0f, 1.0f);
+	pointLight[1] = Light(30.0f, 10.0f, -40.0f, 1.0f);
+	pointLight[2] = Light(30.0f, 10.0f, -30.0f, 1.0f);
+	pointLight[3] = Light(30.0f, 10.0f, -20.0f, 1.0f);
+	pointLight[4] = Light(30.0f, 10.0f, -10.0f, 1.0f); 
+	pointLight[5] = Light(30.0f, 10.0f, 0.0f, 1.0f);
+}
+
+void setSpotLights() {
+	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+
+	spotDir[0] = -sleigh_direction_x;
+	spotDir[1] = -sleigh_direction_y;
+	spotDir[2] = -sleigh_direction_z;
+	spotDir[3] = 0.0f;
+}
+
+void changeDirectionalLightMode() {
+	directionalLight.changeMode();
+}
+
+void changePointLightsMode() {
+	for (int i = 0; i < n_pointLights; i++) {
+		pointLight[i].changeMode();
+	}
+}
+
+void changeSpotlightsMode() {
+	for (int i = 0; i < n_spotlights; i++) {
+		spotlight[i].changeMode();
+	}
 }
 
 
@@ -271,7 +346,7 @@ void renderTrees(void) {
 		pushMatrix(MODEL);
 
 		// set position and scale
-		translate(MODEL, 2.0f, 0.0f, (i - 0.68f) * -8.0f);
+		translate(MODEL, 1.5f, 0.0f, (i - 0.68f) * -8.0f);
 		scale(MODEL, 3.0f, 3.0f, 3.0f);
 
 		// send matrices to OGL
@@ -394,9 +469,29 @@ void renderScene(void) {
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	pushMatrix(VIEW);
+	pushMatrix(MODEL);
+
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
+
+	// apply the appropriate camera projection
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+
+	float ratio = (1.0f * WinX) / WinY;
+
+	if (cams[activeCam].getCameraType() == 1) {
+		// top ortho
+		ortho(-18.0f * ratio, 18.0f * ratio, -18.0f * ratio, 18.0f * ratio, -1, 1000);
+	}
+	else {
+		perspective(53.13f, ratio, 0.1f, 1000.0f);
+	}
 
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
@@ -407,12 +502,43 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	//send the light position in eye coordinates
-	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
+	glUniform1i(directionalLightOnId, directionalLightOn);
+	glUniform1i(pointLightsOnId, pointLightsOn);
+	glUniform1i(spotLightsOnId, spotLightsOn);
 
+
+	// Set pointLights
 	float res[4];
-	multMatrixPoint(VIEW, lightPos, res);   //lightPos definido em World Coord so is converted to eye space
-	glUniform4fv(lPos_uniformId, 1, res);
+	for (int i = 0; i < n_pointLights; i++) {
+		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   // position definided em World Coord so is converted to eye space
+		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+	
+	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
+	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
+	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
+	glUniform4fv(pointLight4_uniformId, 1, pointLight[3].getEye());
+	glUniform4fv(pointLight5_uniformId, 1, pointLight[4].getEye());
+	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
+
+	// Set spotlights
+	float model[4];
+	setSpotLights();
+	for (int i = 0; i < n_spotlights; i++) {
+		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
+		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	multMatrixPoint(VIEW, spotDir, res);
+
+	glUniform4fv(spotLightL_uniformId, 1, spotlight[0].getEye());
+	glUniform4fv(spotLightR_uniformId, 1, spotlight[1].getEye());
+	glUniform4fv(spotDir_uniformId, 1, res);
+
+	// Set global light
+	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
+	glUniform4fv(directional_uniformId, 1, res);
+
 
 	// Render objects
 	renderTerrain();
@@ -421,36 +547,9 @@ void renderScene(void) {
 	renderSleigh();
 	renderSnowballs();
 
-	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
-	glDisable(GL_DEPTH_TEST);
-	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	int m_viewport[4];
-	glGetIntegerv(GL_VIEWPORT, m_viewport);
-
-	//viewer at origin looking down at  negative z direction
-	pushMatrix(MODEL);
-	loadIdentity(MODEL);
-
-	// apply the appropriate camera projection
-	pushMatrix(PROJECTION);
-	loadIdentity(PROJECTION);
-
-	if (activeCam == 1) {
-		// top ortho
-		ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
-	}
-	else {
-		float ratio = (1.0f * WinX) / WinY;
-		perspective(53.13f, ratio, 0.1f, 1000.0f);
-	}
-
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
 
-	// RenderText(shaderText, "This is a sample text", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
-	// RenderText(shaderText, "AVT Light and Text Rendering Demo", 440.0f, 570.0f, 0.5f, 0.3, 0.7f, 0.9f);
 	popMatrix(PROJECTION);
 	popMatrix(VIEW);
 	popMatrix(MODEL);
@@ -474,17 +573,28 @@ void processKeys(unsigned char key, int xx, int yy)
 		glutLeaveMainLoop();
 		break;
 
-	case 'c':
-		printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
-		break;
+		case 'c':
+			//printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+			pointLightsOn = !pointLightsOn;
+			printf("PointLights %s\n", pointLightsOn ? "ON" : "OFF");
+			changePointLightsMode();
+			break;
 
 	case 'm':
 		glEnable(GL_MULTISAMPLE);
 		break;
 
-	case 'n':
-		glDisable(GL_MULTISAMPLE);
-		break;
+		case 'h':
+			spotLightsOn = !spotLightsOn;
+			printf("Spotlights %s\n", spotLightsOn ? "ON" : "OFF");
+			changeSpotlightsMode();
+			break;
+
+		case 'n': 
+			directionalLightOn = !directionalLightOn;
+			printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
+			changeDirectionalLightMode();
+			break;
 
 	case 'a':
 		sleigh_angle_h += delta_h;
@@ -505,14 +615,13 @@ void processKeys(unsigned char key, int xx, int yy)
 	case 'o':
 		sleigh_speed += delta_s;
 
-		if (sleigh_speed > 0) {
-			sleigh_speed -= delta_s * delta_t;
-		}
-		if (sleigh_speed > max_speed) {
-			sleigh_speed = max_speed;
-		}
-
-		break;
+			if (sleigh_speed > 0) {
+				sleigh_speed -= delta_s * delta_t;
+			} 
+			if (sleigh_speed > max_speed) {
+				sleigh_speed = max_speed;
+			}
+			break;
 
 	case '1':
 		activeCam = 0;
@@ -597,11 +706,13 @@ void processMouseMotion(int xx, int yy)
 			rAux = 0.1f;
 	}
 
-	camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
-	camZ = rAux * cos(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
-	camY = rAux * sin(betaAux * 3.14f / 180.0f);
+	if (activeCam == 2) {
+		camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
+		camZ = rAux * cos(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
+		camY = rAux * sin(betaAux * 3.14f / 180.0f);
 
-	cams[activeCam].setCameraPosition(camX, camY, camZ);
+		cams[activeCam].setCameraPosition(camX, camY, camZ);
+	}
 
 	//  uncomment this if not using an idle or refresh func
 	//	glutPostRedisplay();
@@ -614,11 +725,13 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 	if (r < 0.1f)
 		r = 0.1f;
 
-	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camY = r * sin(beta * 3.14f / 180.0f);
+	if (activeCam == 2) {
+		camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+		camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+		camY = r * sin(beta * 3.14f / 180.0f);
 
-	cams[activeCam].setCameraPosition(camX, camY, camZ);
+		cams[activeCam].setCameraPosition(camX, camY, camZ);
+	}
 
 	//  uncomment this if not using an idle or refresh func
 	//	glutPostRedisplay();
@@ -654,10 +767,28 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+
+	directionalLightOnId = glGetUniformLocation(shader.getProgramIndex(), "directionalLightOn");
+	pointLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "pointLightsOn");
+	spotLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "spotLightsOn");
+
+	directional_uniformId = glGetUniformLocation(shader.getProgramIndex(), "directionalLight");
+
+	pointLight1_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight1");
+	pointLight2_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight2");
+	pointLight3_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight3");
+	pointLight4_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight4");
+	pointLight5_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight5");
+	pointLight6_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight6");
+
+	spotLightL_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightL");
+	spotLightR_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightR");
+
+	spotDir_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotDir");
+
 
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
@@ -697,19 +828,23 @@ void init()
 	/// Initialization of freetype library with font_name file
 	freeType_init(font_name);
 
-	// set the camera position based on its spherical coordinates
-	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f) + 40.0f;
-	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camY = r * sin(beta * 3.14f / 180.0f) + 10.0f;
+	// Initialize lights
+	directionalLight = Light(0.0f, 25.0f, 10.0f, 0.0f);
+	setPointLights();
 
-	std::cout << camX << " " << camY << " " << camZ;
+	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+	camY = r * sin(beta * 3.14f / 180.0f);
 
 	// set additional camera 1
-	cams[0].setCameraPosition(camX, camY, camZ); // top perspective
+	cams[0].setCameraPosition(camX, 60.0f, camZ); // top perspective
+	cams[0].setCameraTarget(0.0f, 0.0f, -10.0f);
+	cams[0].setCameraType(0);
 
 	// set additional camera 2
-	cams[1].setCameraPosition(camX, camY, camZ); // top ortho
-	cams[1].type = 1;
+	cams[1].setCameraPosition(0.1f, 50.0f, 0.0f); // top ortho
+	cams[1].setCameraTarget(0.0f, 0.0f, -10.0f);
+	cams[1].setCameraType(1);
 
 	// set additional camera 3
 	float cam2_x = -sleigh_direction_x * camera_dist;
@@ -718,7 +853,7 @@ void init()
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
-	cams[2].setCameraType(2);
+	cams[2].setCameraType(0);
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
@@ -735,6 +870,7 @@ void init()
 	memcpy(terrainMesh.mat.emissive, emissive, 4 * sizeof(float));
 	terrainMesh.mat.shininess = shininess;
 	terrainMesh.mat.texCount = texcount;
+
 
 	for (int i = 0; i < 5; i++) {
 		// create geometry and VAO of the sleigh
