@@ -71,9 +71,11 @@ extern float mNormal3x3[9];
 GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
-GLint global_uniformId;
+GLint directional_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2;
-GLint pointLight_uniformId[10];
+GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
+GLint spotLightL_uniformId, spotLightR_uniformId;
+GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
 
 // Cameras
 Camera cams[3];
@@ -93,10 +95,12 @@ long myTime, timebase = 0, frame = 0;
 char s[32];
 
 //Lights
-bool nightMode = true;
-const int n_pointLights = 10;
+bool directionalLightOn = true;
+bool pointLightsOn = true;
+bool spotLightsOn = true;
+const int n_pointLights = 6;
 const int n_spotlights = 2;
-Light globalLight;
+Light directionalLight;
 Light pointLight[n_pointLights];
 Light spotlight[n_spotlights];
 float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
@@ -160,7 +164,7 @@ void changeSize(int w, int h) {
 	// set the projection matrix
 	ratio = (1.0f * w) / h;
 	loadIdentity(PROJECTION);
-	//perspective(53.13f, ratio, 0.1f, 1000.0f);
+	perspective(53.13f, ratio, 0.1f, 1000.0f);
 }
 
 // ------------------------------------------------------------
@@ -169,21 +173,12 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(20.0f, 6.0f, -30.0f, 1.0f);
-	pointLight[1] = Light(20.0f, 6.0f, -24.0f, 1.0f);
-	pointLight[2] = Light(20.0f, 6.0f, -18.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 6.0f, -12.0f, 1.0f);	
-	pointLight[4] = Light(20.0f, 6.0f, -6.0f, 1.0f);
-	pointLight[5] = Light(20.0f, 6.0f, 0.0f, 1.0f);
-	pointLight[6] = Light(20.0f, 6.0f, 6.0f, 1.0f);
-	pointLight[7] = Light(20.0f, 6.0f, 12.0f, 1.0f);
-	pointLight[8] = Light(20.0f, 6.0f, 18.0f, 1.0f);
-	pointLight[9] = Light(20.0f, 6.0f, 24.0f, 1.0f);
-
-	for (int i = 0; i < n_pointLights; i++) {
-		string lightPosName = "pointLights[" + std::to_string(i) + "]";
-		pointLight_uniformId[i] = glGetUniformLocation(shader.getProgramIndex(), lightPosName.c_str());
-	}
+	pointLight[0] = Light(20.0f, 10.0f, -30.0f, 1.0f);
+	pointLight[1] = Light(20.0f, 10.0f, -20.0f, 1.0f);
+	pointLight[2] = Light(20.0f, 10.0f, -10.0f, 1.0f);
+	pointLight[3] = Light(20.0f, 10.0f, 0.0f, 1.0f);
+	pointLight[4] = Light(20.0f, 10.0f, 10.0f, 1.0f);
+	pointLight[5] = Light(20.0f, 10.0f, 30.0f, 1.0f);
 }
 
 void setSpotLights() {
@@ -195,8 +190,8 @@ void setSpotLights() {
 	spotlight[1] = Light(posX + 0.5f, posY, posZ, 1.0f);
 }
 
-void changeGlobalLightMode() {
-	globalLight.changeMode();
+void changeDirectionalLightMode() {
+	directionalLight.changeMode();
 	// consoante o mode, desligar ou ligar
 }
 
@@ -420,15 +415,10 @@ void renderScene(void) {
 	float ratio = (1.0f * WinX) / WinY;
 
 	if (cams[activeCam].getCameraType() == 1) {
-		std::cout << "ortho" << std::endl;
 		// top ortho
 		ortho(-18.0f * ratio, 18.0f * ratio, -18.0f * ratio, 18.0f * ratio, -1, 1000);
 	}
 	else {
-		std::cout << "pers " << WinX << " " << WinY << std::endl;
-
-		
-		std::cout << ratio << std::endl;
 		perspective(53.13f, ratio, 0.1f, 1000.0f);
 	}
 
@@ -441,16 +431,26 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	//send the light position in eye coordinates
-	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
+	glUniform1i(directionalLightOnId, directionalLightOn);
+	glUniform1i(pointLightsOnId, pointLightsOn);
+	glUniform1i(spotLightsOnId, spotLightsOn);
+
 
 	// Set pointLights
-	
 	float res[4];
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < n_pointLights; i++) {
 		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
-		glUniform4fv(pointLight_uniformId[i], 1, res);
+		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
+		
+		//glUniform4fv(pointLight_uniformId[i], 1, res);
 	}
+	
+	glUniform4fv(pointLight1_uniformId, 1, pointLight[1].getEye());
+	glUniform4fv(pointLight2_uniformId, 1, pointLight[2].getEye());
+	glUniform4fv(pointLight3_uniformId, 1, pointLight[3].getEye());
+	glUniform4fv(pointLight4_uniformId, 1, pointLight[4].getEye());
+	glUniform4fv(pointLight5_uniformId, 1, pointLight[5].getEye());
+	glUniform4fv(pointLight6_uniformId, 1, pointLight[6].getEye());
 
 	// Set spotlights
 	/*
@@ -461,16 +461,14 @@ void renderScene(void) {
 	} */
 
 	// Set global light
-	multMatrixPoint(VIEW, globalLight.getPosition(), res);
-	glUniform4fv(global_uniformId, 1, res);
+	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
+	glUniform4fv(directional_uniformId, 1, res);
 
 	// Render objects
 	renderTerrain();
 	renderHouses();
 	renderTrees();
 	renderSleigh();
-
-	std::cout << "render1" << std::endl;
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
@@ -482,7 +480,6 @@ void renderScene(void) {
 	glDisable(GL_BLEND);
 
 	glutSwapBuffers();
-	std::cout << "render2" << std::endl;
 }
 
 
@@ -501,6 +498,7 @@ void processKeys(unsigned char key, int xx, int yy)
 
 		case 'c':
 			printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+			pointLightsOn = !pointLightsOn;
 			changePointLightsMode();
 			break;
 
@@ -509,12 +507,12 @@ void processKeys(unsigned char key, int xx, int yy)
 			break;
 
 		case 'h':
+			spotLightsOn = !spotLightsOn;
 			changeSpotlightsMode();
 			break;
 
 		case 'n': 
-			glDisable(GL_MULTISAMPLE); 
-			changeGlobalLightMode();
+			directionalLightOn = !directionalLightOn;
 			break;
 
 		case 'a': 
@@ -688,10 +686,27 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	global_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+
+	directionalLightOnId = glGetUniformLocation(shader.getProgramIndex(), "directionalLightOn");
+	pointLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "pointLightsOn");
+	spotLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "spotLightsOn");
+
+	directional_uniformId = glGetUniformLocation(shader.getProgramIndex(), "directionalLight");
+
+	pointLight1_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight1");
+	pointLight2_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight2");
+	pointLight3_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight3");
+	pointLight4_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight4");
+	pointLight5_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight5");
+	pointLight6_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight6");
+
+	spotLightL_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightL");
+	spotLightR_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightR");
+
+
 
 
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
@@ -733,7 +748,7 @@ void init()
 	freeType_init(font_name);
 
 	// Initialize lights
-	globalLight = Light(0.0f, 50.0f, -10.0f, 0.0f);
+	directionalLight = Light(0.0f, 25.0f, 10.0f, 0.0f);
 	setPointLights();
 
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
@@ -774,6 +789,7 @@ void init()
 	memcpy(terrainMesh.mat.emissive, emissive, 4 * sizeof(float));
 	terrainMesh.mat.shininess = shininess;
 	terrainMesh.mat.texCount = texcount;
+
 
 	for (int i = 0; i < 5; i++) {
 		// create geometry and VAO of the sleigh

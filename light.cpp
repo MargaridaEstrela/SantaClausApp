@@ -14,8 +14,19 @@ void Light::setPosition(float posX, float posY, float posZ, float pointLight) {
 	this->pos[3] = pointLight;
 }
 
+void Light::setEye(float posX, float posY, float posZ, float pointLight) {
+	this->eye[0] = posX;
+	this->eye[1] = posY;
+	this->eye[2] = posZ;
+	this->eye[3] = pointLight;
+}
+
 float* Light::getPosition() {
 	return this->pos;
+}
+
+float* Light::getEye() {
+	return this->eye;
 }
 
 void Light::changeMode() {
