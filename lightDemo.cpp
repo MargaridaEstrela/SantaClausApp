@@ -113,7 +113,7 @@ Light spotlight[n_spotlights];
 float spotDir[4];
 
 // Sleigh coordinates
-float sleigh_x = 15.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
+float sleigh_x = 10.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
 float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
@@ -216,12 +216,12 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(30.0f, 10.0f, -50.0f, 1.0f);
-	pointLight[1] = Light(30.0f, 10.0f, -40.0f, 1.0f);
-	pointLight[2] = Light(30.0f, 10.0f, -30.0f, 1.0f);
-	pointLight[3] = Light(30.0f, 10.0f, -20.0f, 1.0f);
-	pointLight[4] = Light(30.0f, 10.0f, -10.0f, 1.0f); 
-	pointLight[5] = Light(30.0f, 10.0f, 0.0f, 1.0f);
+	pointLight[0] = Light(20.0f, 0.5f, -50.0f, 1.0f);
+	pointLight[1] = Light(20.0f, 0.5f, -40.0f, 1.0f);
+	pointLight[2] = Light(20.0f, 0.5f, -30.0f, 1.0f);
+	pointLight[3] = Light(20.0f, 0.5f, -20.0f, 1.0f);
+	pointLight[4] = Light(20.0f, 0.5f, -10.0f, 1.0f);
+	pointLight[5] = Light(20.0f, 0.5f, 0.0f, 1.0f);
 }
 
 void setSpotLights() {
@@ -294,7 +294,7 @@ void renderHouses(void) {
 	GLint loc;
 	int houseId = 0;
 
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < 8; ++i) {
 
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, housesMeshes[houseId].mat.ambient);
@@ -304,11 +304,17 @@ void renderHouses(void) {
 		glUniform4fv(loc, 1, housesMeshes[houseId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, housesMeshes[houseId].mat.shininess);
+
 		pushMatrix(MODEL);
 
 		// set position and scale
-		translate(MODEL, 0.0f, 0.0f, i * -8.0f);
-		scale(MODEL, 3.0f, 3.0f, 3.0f);
+		if (i < 4) {
+			translate(MODEL, 0.0f, 0.0f, i * -8.0f);
+			scale(MODEL, 3.0f, 3.0f, 3.0f);
+		} else {
+			translate(MODEL, 1.5f, 3.0f, (i-4.2) * -8.0f);
+			rotate(MODEL, -45.0f, 0.0f, 1.0f, 0.0f);
+		}
 
 		// send matrices to OGL
 		computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -842,7 +848,7 @@ void init()
 	cams[0].setCameraType(0);
 
 	// set additional camera 2
-	cams[1].setCameraPosition(0.1f, 50.0f, 0.0f); // top ortho
+	cams[1].setCameraPosition(0.1f, 100.0f, 0.0f); // top ortho
 	cams[1].setCameraTarget(0.0f, 0.0f, -10.0f);
 	cams[1].setCameraType(1);
 
@@ -924,6 +930,18 @@ void init()
 	for (int i = 0; i < 4; i++) {
 		// create geometry and VAO of the cube for each house
 		amesh = createCube();
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		housesMeshes.push_back(amesh);
+	}
+
+	for (int i = 0; i < 4; i++) {
+		// create geometry and VAO of the cone for each house's roof
+		amesh = createCone(1.0f, 2.4f, 4);
 		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
