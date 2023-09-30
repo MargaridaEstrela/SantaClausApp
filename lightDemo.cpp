@@ -76,6 +76,7 @@ GLint tex_loc, tex_loc1, tex_loc2;
 GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
 GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
+GLint spotDir_uniformId;
 
 // Cameras
 Camera cams[3];
@@ -103,7 +104,7 @@ const int n_spotlights = 2;
 Light directionalLight;
 Light pointLight[n_pointLights];
 Light spotlight[n_spotlights];
-float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
+float spotDir[4];
 
 // Sleigh coordinates
 float sleigh_x = 15.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
@@ -177,7 +178,7 @@ void setPointLights() {
 	pointLight[1] = Light(30.0f, 10.0f, -30.0f, 1.0f);
 	pointLight[2] = Light(30.0f, 10.0f, -20.0f, 1.0f);
 	pointLight[3] = Light(30.0f, 10.0f, -10.0f, 1.0f);
-	pointLight[4] = Light(30.0f, 10.0f, 0.0f, 1.0f);
+	pointLight[4] = Light(30.0f, 10.0f, 0.0f, 1.0f); 
 	pointLight[5] = Light(30.0f, 10.0f, 10.0f, 1.0f);
 }
 
@@ -186,32 +187,28 @@ void setSpotLights() {
 	float posY = sleigh_y - sleigh_direction_y * 0.75 + 2.0f;
 	float posZ = sleigh_z - sleigh_direction_z * 0.75;
 
-	spotlight[0] = Light(posX - 0.5f, posY, posZ, 1.0f);
-	spotlight[1] = Light(posX + 0.5f, posY, posZ, 1.0f);
+	spotlight[0] = Light(sleigh_x - 0.5f, sleigh_y, sleigh_z - 1.5f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 0.5f, sleigh_y, sleigh_z - 1.5f, 1.0f);
+
+	spotDir[0] = sleigh_direction_x;
+	spotDir[1] = sleigh_direction_y;
+	spotDir[2] = sleigh_direction_z;
+	spotDir[3] = 0.0f;
 }
 
 void changeDirectionalLightMode() {
 	directionalLight.changeMode();
-	// consoante o mode, desligar ou ligar
 }
 
 void changePointLightsMode() {
 	for (int i = 0; i < n_pointLights; i++) {
 		pointLight[i].changeMode();
-
-		//float res[4];
-		//multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
-		//glUniform4fv(lPos_uniformId, 1, pointLight[i].getPosition());
 	}
 }
 
 void changeSpotlightsMode() {
 	for (int i = 0; i < n_spotlights; i++) {
 		spotlight[i].changeMode();
-
-		//float res[4];
-		//multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
-		//glUniform4fv(lPos_uniformId, 1, pointLight[i].getPosition());
 	}
 }
 
@@ -439,10 +436,8 @@ void renderScene(void) {
 	// Set pointLights
 	float res[4];
 	for (int i = 0; i < n_pointLights; i++) {
-		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
+		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   // position definided em World Coord so is converted to eye space
 		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
-		
-		//glUniform4fv(pointLight_uniformId[i], 1, res);
 	}
 	
 	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
@@ -453,16 +448,23 @@ void renderScene(void) {
 	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
 
 	// Set spotlights
-	/*
+	float model[4];
+	setSpotLights();
 	for (int i = 0; i < n_spotlights; i++) {
-		float res[4];
-		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);   //lightPos definido em World Coord so is converted to eye space
-		glUniform4fv(lPos_uniformId, 1, res);
-	} */
+		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
+		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	multMatrixPoint(VIEW, spotDir, res);
+
+	glUniform4fv(spotLightL_uniformId, 1, spotlight[0].getEye());
+	glUniform4fv(spotLightR_uniformId, 1, spotlight[1].getEye());
+	glUniform4fv(spotDir_uniformId, 1, res);
 
 	// Set global light
 	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
 	glUniform4fv(directional_uniformId, 1, res);
+
 
 	// Render objects
 	renderTerrain();
@@ -497,8 +499,9 @@ void processKeys(unsigned char key, int xx, int yy)
 			break;
 
 		case 'c':
-			printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+			//printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
 			pointLightsOn = !pointLightsOn;
+			printf("PointLights %s\n", pointLightsOn ? "ON" : "OFF");
 			changePointLightsMode();
 			break;
 
@@ -508,11 +511,14 @@ void processKeys(unsigned char key, int xx, int yy)
 
 		case 'h':
 			spotLightsOn = !spotLightsOn;
+			printf("Spotlights %s\n", spotLightsOn ? "ON" : "OFF");
 			changeSpotlightsMode();
 			break;
 
 		case 'n': 
 			directionalLightOn = !directionalLightOn;
+			printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
+			changeDirectionalLightMode();
 			break;
 
 		case 'a': 
@@ -706,7 +712,7 @@ GLuint setupShaders() {
 	spotLightL_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightL");
 	spotLightR_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightR");
 
-
+	spotDir_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotDir");
 
 
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());

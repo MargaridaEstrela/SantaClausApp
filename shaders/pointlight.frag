@@ -13,6 +13,9 @@ struct Materials {
 
 uniform Materials mat;
 
+uniform vec4 spotDir;
+const float spotCutOff = 0.5;
+
 uniform bool directionalLightOn;
 uniform bool pointLightsOn;
 uniform bool spotLightsOn;
@@ -20,7 +23,7 @@ uniform bool spotLightsOn;
 in Data {
 	vec3 normal;
 	vec3 eye;
-	vec3 lightDir[7];
+	vec3 lightDir[9];
 } DataIn;
 
 void main() {
@@ -34,25 +37,27 @@ void main() {
 	vec3 n = normalize(DataIn.normal);
 	vec3 e = normalize(DataIn.eye);
 
-	for (int i = 0; i < 7; i++) {
+	for (int i = 0; i <9; i++) {
 
 		if (i == 0 && !directionalLightOn) continue;
-
-		if (i >= 1 && i < 7 && !pointLightsOn) break;
-
+		if (i >= 1 && i < 7 && !pointLightsOn) continue;
 		if (i >= 7 && !spotLightsOn) break;
 
 		vec3 l = normalize(DataIn.lightDir[i]);
 		
 		float intensity = 0.0f;
-		if (i != 0 && i != 7 && i != 8) {
+		if (i != 0) {
 			intensity = max(dot(n,l), 0.0) * 0.1f;
 		} else {
 			intensity = max(dot(n,l), 0.0);
 		}
+
+		if (i >= 7) {
+			vec3 sd = normalize(vec3(-spotDir));
+			if (dot(sd, l) < spotCutOff) intensity = 0.0;
+		}
 	
 		if (intensity > 0.0) {
-
 			vec3 h = normalize(l + e);
 			float intSpec = max(dot(h,n), 0.0);
 			spec = mat.specular * pow(intSpec, mat.shininess);
