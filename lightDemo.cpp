@@ -31,6 +31,7 @@
 #include "AVTmathLib.h"
 #include "VertexAttrDef.h"
 #include "geometry.h"
+#include "Texture_Loader.h"
 
 #include "avtFreeType.h"
 
@@ -40,7 +41,7 @@
 
 using namespace std;
 
-#define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
+#define CAPTION "SantaClaus App"
 int WindowHandle = 0;
 int WinX = 1024, WinY = 768;
 
@@ -75,11 +76,14 @@ GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
 GLint directional_uniformId;
-GLint tex_loc, tex_loc1, tex_loc2;
 GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
 GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
+
+GLint tex_loc, tex_loc1, tex_loc2;
+GLint texMode_uniformId;
+GLuint TextureArray[3];
 
 // Snowballs
 int snowball_num = 30;
@@ -119,7 +123,11 @@ float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
 float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
 
-// Snowball accelaration
+void refresh(int value)
+{
+	glutPostRedisplay();
+	glutTimerFunc(1000 / 60, refresh, 0);
+}
 
 void timer(int value)
 {
@@ -186,11 +194,7 @@ void timer(int value)
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
 
-void refresh(int value)
-{
-	glutPostRedisplay();
-	glutTimerFunc(1000 / 60, refresh, 0);
-}
+
 
 // ------------------------------------------------------------
 //
@@ -282,6 +286,7 @@ void renderTerrain(void) {
 	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 	// Render mesh
+	glUniform1i(texMode_uniformId, 0);
 	glBindVertexArray(terrainMesh.vao);
 
 	glDrawElements(terrainMesh.type, terrainMesh.numIndexes, GL_UNSIGNED_INT, 0);
@@ -325,6 +330,8 @@ void renderHouses(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
+		if (i >= 4) glUniform1i(texMode_uniformId, 1);
+		else  glUniform1i(texMode_uniformId, 2);
 		glBindVertexArray(housesMeshes[houseId].vao);
 
 		glDrawElements(housesMeshes[houseId].type, housesMeshes[houseId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -364,6 +371,7 @@ void renderTrees(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
+		glUniform1i(texMode_uniformId, 2);
 		glBindVertexArray(treesMeshes[treeId].vao);
 
 		glDrawElements(treesMeshes[treeId].type, treesMeshes[treeId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -425,6 +433,7 @@ void renderSleigh(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
+		glUniform1i(texMode_uniformId, 2);
 		glBindVertexArray(sleighMesh[sleighId].vao);
 
 		glDrawElements(sleighMesh[sleighId].type, sleighMesh[sleighId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -462,6 +471,7 @@ void renderSnowballs(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
+		glUniform1i(texMode_uniformId, 3);
 		glBindVertexArray(snowballMeshes[i].vao);
 
 		glDrawElements(snowballMeshes[i].type, snowballMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
@@ -546,6 +556,22 @@ void renderScene(void) {
 	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
 	glUniform4fv(directional_uniformId, 1, res);
 
+
+	// Associate Texture Units to Texture Objects
+	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
+
+	glUniform1i(tex_loc, 0);
+	glUniform1i(tex_loc1, 1);
+	glUniform1i(tex_loc2, 2);
 
 	// Render objects
 	renderTerrain();
@@ -762,27 +788,32 @@ GLuint setupShaders() {
 	glBindFragDataLocation(shader.getProgramIndex(), 0, "colorOut");
 	glBindAttribLocation(shader.getProgramIndex(), VERTEX_COORD_ATTRIB, "position");
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
-	//glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
+	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
 
 	glLinkProgram(shader.getProgramIndex());
 	printf("InfoLog for Model Rendering Shader\n%s\n\n", shaderText.getAllInfoLogs().c_str());
 
-	if (!shader.isProgramValid()) {
+	/*if (!shader.isProgramValid()) {
 		printf("GLSL Model Program Not Valid!\n");
 		exit(1);
-	}
+	}*/
 
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
+
+	// textures
+	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
 
+	// toggle lights
 	directionalLightOnId = glGetUniformLocation(shader.getProgramIndex(), "directionalLightOn");
 	pointLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "pointLightsOn");
 	spotLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "spotLightsOn");
 
+	// lights
 	directional_uniformId = glGetUniformLocation(shader.getProgramIndex(), "directionalLight");
 
 	pointLight1_uniformId = glGetUniformLocation(shader.getProgramIndex(), "pointLight1");
@@ -862,6 +893,11 @@ void init()
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
+
+	glGenTextures(3, TextureArray);
+	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
+	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
+	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
@@ -1014,7 +1050,6 @@ int main(int argc, char** argv) {
 	glutReshapeFunc(changeSize);
 
 	glutTimerFunc(0, timer, 0);
-	//glutIdleFunc(renderScene);  // Use it for maximum performance
 	glutTimerFunc(0, refresh, 0);    //use it to to get 60 FPS whatever
 
 	//	Mouse and Keyboard Callbacks

@@ -1,5 +1,12 @@
 #version 410
 
+uniform sampler2D texmap;
+uniform sampler2D texmap1;
+uniform sampler2D texmap2;
+uniform sampler2D texmap3;
+
+uniform int texMode;
+
 out vec4 colorOut;
 
 struct Materials {
@@ -28,9 +35,12 @@ in Data {
 	vec3 normal;
 	vec3 eye;
 	vec3 lightDir[9];
+	vec2 tex_coord;
 } DataIn;
 
 void main() {
+
+	vec4 texel, texel1;
 
 	colorOut = vec4(0);
 
@@ -71,6 +81,33 @@ void main() {
 		}
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
+
+		if (texMode == 0) // modulate diffuse color with texel color
+		{
+			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
+			colorOut += max(intensity*texel*mat.ambient + spec, 0.25*texel) / attenuation;
+		} 
+		else if (texMode == 1) // Roof
+		{
+			texel = texture(texmap1, DataIn.tex_coord);  // texel from roof.jpeg
+			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+		}
+		else if (texMode == 2) // sleigh
+		{
+			texel = texture(texmap1, DataIn.tex_coord);  // texel from snow.png
+			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+		}
+		else if (texMode == 3) // snowballs
+		{
+			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
+			colorOut = texel;
+		}
+		else // multitexturing	
+		{
+			texel = texture(texmap2, DataIn.tex_coord);  // texel from lighwood.tga
+			texel1 = texture(texmap1, DataIn.tex_coord);  // texel from checker.tga
+			colorOut = max(intensity*texel*texel1 + spec, 0.07*texel*texel1);
+		}
 	}
 
 }

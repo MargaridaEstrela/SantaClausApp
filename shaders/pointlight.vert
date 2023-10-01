@@ -17,12 +17,14 @@ uniform vec4 spotLightL;
 uniform vec4 spotLightR;
 
 in vec4 position;
-in vec4 normal;    //por causa do gerador de geometria
+in vec4 normal;		//por causa do gerador de geometria
+in vec4 texCoord;
 
 out Data {
 	vec3 normal;
 	vec3 eye;
 	vec3 lightDir[9];
+	vec2 tex_coord;
 } DataOut;
 
 void main () {
@@ -41,6 +43,8 @@ void main () {
 	DataOut.lightDir[6] = vec3(pointLight6 - pos);
 	DataOut.lightDir[7] = vec3(spotLightL - pos);
 	DataOut.lightDir[8] = vec3(spotLightR - pos);
+
+	DataOut.tex_coord = texCoord.st;
 
 	gl_Position = m_pvm * position;	
 }
