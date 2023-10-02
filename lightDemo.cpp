@@ -331,7 +331,7 @@ void renderHouses(void) {
 
 		// Render mesh
 		if (i >= 4) glUniform1i(texMode_uniformId, 1);
-		else  glUniform1i(texMode_uniformId, 2);
+		else  glUniform1i(texMode_uniformId, 4);
 		glBindVertexArray(housesMeshes[houseId].vao);
 
 		glDrawElements(housesMeshes[houseId].type, housesMeshes[houseId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -371,7 +371,7 @@ void renderTrees(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
-		glUniform1i(texMode_uniformId, 2);
+		glUniform1i(texMode_uniformId, 4);
 		glBindVertexArray(treesMeshes[treeId].vao);
 
 		glDrawElements(treesMeshes[treeId].type, treesMeshes[treeId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -566,7 +566,7 @@ void renderScene(void) {
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
 
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
 
 	glUniform1i(tex_loc, 0);

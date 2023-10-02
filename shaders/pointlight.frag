@@ -84,8 +84,8 @@ void main() {
 
 		if (texMode == 0) // modulate diffuse color with texel color
 		{
-			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
-			colorOut += max(intensity*texel*mat.ambient + spec, 0.25*texel) / attenuation;
+			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
+			colorOut += max(intensity*texel*mat.ambient + spec, 0.2*texel) / attenuation;
 		} 
 		else if (texMode == 1) // Roof
 		{
@@ -94,19 +94,19 @@ void main() {
 		}
 		else if (texMode == 2) // sleigh
 		{
-			texel = texture(texmap1, DataIn.tex_coord);  // texel from snow.png
+			texel = texture(texmap2, DataIn.tex_coord);  // texel from snow.png
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 		}
 		else if (texMode == 3) // snowballs
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut = texel;
+			colorOut = min(intensity*texel + spec, texel);
 		}
 		else // multitexturing	
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from lighwood.tga
-			texel1 = texture(texmap1, DataIn.tex_coord);  // texel from checker.tga
-			colorOut = max(intensity*texel*texel1 + spec, 0.07*texel*texel1);
+			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
+			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		}
 	}
 
