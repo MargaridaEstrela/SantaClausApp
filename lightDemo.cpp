@@ -78,7 +78,7 @@ GLint normal_uniformId;
 GLint directional_uniformId;
 GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
 GLint spotLightL_uniformId, spotLightR_uniformId;
-GLint directionalLightOnId, pointLightsOnId, spotLightsOnId;
+GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
 GLint tex_loc, tex_loc1, tex_loc2;
@@ -109,6 +109,7 @@ char s[32];
 bool directionalLightOn = true;
 bool pointLightsOn = false;
 bool spotLightsOn = false;
+bool fog = false;
 const int n_pointLights = 6;
 const int n_spotlights = 2;
 Light directionalLight;
@@ -519,6 +520,7 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
+	if (activeCam == 2) glUniform1i(fogOnId, fog);
 	glUniform1i(directionalLightOnId, directionalLightOn);
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
@@ -627,6 +629,10 @@ void processKeys(unsigned char key, int xx, int yy)
 		directionalLightOn = !directionalLightOn;
 		printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
 		changeDirectionalLightMode();
+		break;
+
+	case 'f':
+		fog = !fog;
 		break;
 
 	case 'a':
@@ -809,6 +815,7 @@ GLuint setupShaders() {
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
 
 	// toggle lights
+	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
 	directionalLightOnId = glGetUniformLocation(shader.getProgramIndex(), "directionalLightOn");
 	pointLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "pointLightsOn");
 	spotLightsOnId = glGetUniformLocation(shader.getProgramIndex(), "spotLightsOn");

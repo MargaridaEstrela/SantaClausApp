@@ -26,7 +26,10 @@ const float spotExpo = 80.0f;
 
 const float linear = 0.1;
 const float expo = 0.1;
+const float density = 0.1;
+const float gradient = 1.5;
 
+uniform bool fog;
 uniform bool directionalLightOn;
 uniform bool pointLightsOn;
 uniform bool spotLightsOn;
@@ -108,6 +111,15 @@ void main() {
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		}
+
+	}
+
+	if (fog) {
+		float distance = length(DataIn.eye) - 1;
+		distance = max(0, distance);
+		float visibility = exp(-pow(distance * density, gradient));
+		visibility = clamp(visibility, 0.0, 1.0);
+		colorOut = mix(vec4(0.5, 0.5, 0.5, 1), colorOut, visibility);
 	}
 
 }
