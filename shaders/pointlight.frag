@@ -21,13 +21,13 @@ struct Materials {
 uniform Materials mat;
 
 uniform vec4 spotDir;
-const float spotCutOff = 0.7;
-const float spotExpo = 80.0f;
+const float spotCutOff = 0.95;
+const float spotExpo = 20.0f;
 
 const float linear = 0.1;
 const float expo = 0.1;
 const float density = 0.1;
-const float gradient = 1.5;
+const float gradient = 1.0;
 
 uniform bool fog;
 uniform bool directionalLightOn;
@@ -70,25 +70,33 @@ void main() {
 		
 		float intensity = max(dot(n,l), 0.0);
 
+		
+
 		if (i >= 7) {
 			attenuation += 0.1;
 			vec3 sd = normalize(vec3(-spotDir));
-			if (dot(sd, l) < spotCutOff) intensity = 0.0;
-			else attenuation = 1 / pow(dot(sd, l), spotExpo);
+			float spotCos = dot(l, sd);
+			if (spotCos < spotCutOff) intensity = 0.0;
+			else attenuation = 1 / pow(spotCos, spotExpo);
+
+			if (intensity > 0.0) {
+				vec3 h = normalize(l + e);
+				float intSpec = max(dot(h,n), 0.0);
+				spec = mat.specular * pow(intSpec, mat.shininess);
+			}
+
+			intensity = intensity * 0.1;
 		}
-	
-		if (intensity > 0.0) {
-			vec3 h = normalize(l + e);
-			float intSpec = max(dot(h,n), 0.0);
-			spec = mat.specular * pow(intSpec, mat.shininess);
-		}
+
+		if (i >= 1 && i < 7) intensity = intensity * 0.5;
+		else intensity = intensity * 0.3;
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 
 		if (texMode == 0) // modulate diffuse color with texel color
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
-			colorOut += max(intensity*texel*mat.ambient + spec, 0.2*texel) / attenuation;
+			colorOut += max(intensity*texel + spec, 0.2*texel) / attenuation;
 		} 
 		else if (texMode == 1) // Roof
 		{
@@ -103,13 +111,13 @@ void main() {
 		else if (texMode == 3) // snowballs
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut = min(intensity*texel + spec, texel);
+			colorOut += min(intensity*texel + spec, texel);
 		}
 		else // multitexturing	
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
-			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
+			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		}
 
 	}

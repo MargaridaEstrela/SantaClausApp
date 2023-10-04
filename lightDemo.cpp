@@ -231,8 +231,8 @@ void setPointLights() {
 }
 
 void setSpotLights() {
-	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
-	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y, sleigh_z - 5.0f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y, sleigh_z - 5.0f, 1.0f);
 
 	spotDir[0] = -sleigh_direction_x;
 	spotDir[1] = -sleigh_direction_y;
@@ -520,7 +520,7 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	if (activeCam == 2) glUniform1i(fogOnId, fog);
+	glUniform1i(fogOnId, fog);
 	glUniform1i(directionalLightOnId, directionalLightOn);
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
@@ -875,7 +875,7 @@ void init()
 	freeType_init(font_name);
 
 	// Initialize lights
-	directionalLight = Light(0.0f, 25.0f, 10.0f, 0.0f);
+	directionalLight = Light(0.0f, 5.0f, 10.0f, 0.0f);
 	setPointLights();
 
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
