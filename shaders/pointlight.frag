@@ -111,7 +111,13 @@ void main() {
 		else if (texMode == 3) // snowballs
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut += min(intensity*texel + spec, texel);
+			colorOut += min(intensity*texel + spec, 0.07*texel);
+		}
+		else if (texMode == 4) // trees
+		{
+			texel = texture(texmap3, DataIn.tex_coord);  // texel from leaf.jpeg
+			colorOut += min(intensity*texel + spec, 0.07*texel);
+			colorOut[3] = 0.8; 
 		}
 		else // multitexturing	
 		{
@@ -119,6 +125,7 @@ void main() {
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		}
+
 
 	}
 

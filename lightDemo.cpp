@@ -87,9 +87,9 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3;
 GLint texMode_uniformId;
-GLuint TextureArray[3];
+GLuint TextureArray[4];
 
 // Snowballs
 int snowball_num = 50;
@@ -128,7 +128,7 @@ float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
 float init_x = 10.0f, init_y = 5.0f, init_z = 10.0f;
 float sleigh_x = init_x, sleigh_y = init_y, sleigh_z = init_z;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
-float sleigh_speed = 0.0f, max_speed = 2.0f;
+float sleigh_speed = 0.0f, max_speed = 5.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
 float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
 AABB sleigh_aabb = AABB();
@@ -233,7 +233,7 @@ void resetCollisions() {
 void refresh(int value)
 {
 	glutPostRedisplay();
-	glutTimerFunc(1000 / 60, refresh, 0);
+	glutTimerFunc(1000/60, refresh, 0);
 }
 
 void timer(int value)
@@ -312,7 +312,7 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
-	glutTimerFunc(1 / delta_t, timer, 0);
+	glutTimerFunc(1/delta_t, timer, 0);
 }
 
 // ------------------------------------------------------------
@@ -344,7 +344,7 @@ void setPointLights() {
 	pointLight[1] = Light(20.0f, 0.5f, -30.0f, 1.0f);
 	pointLight[2] = Light(20.0f, 0.5f, -20.0f, 1.0f);
 	pointLight[3] = Light(20.0f, 0.5f, -10.0f, 1.0f);
-	pointLight[4] = Light(20.0f, 0.5f, -0.0f, 1.0f);
+	pointLight[4] = Light(20.0f, 0.5f, 0.0f, 1.0f);
 	pointLight[5] = Light(20.0f, 0.5f, 10.0f, 1.0f);
 }
 
@@ -452,7 +452,7 @@ void renderHouses(void) {
 
 		// Render mesh
 		if (i >= 4) glUniform1i(texMode_uniformId, 1);
-		else  glUniform1i(texMode_uniformId, 4);
+		else  glUniform1i(texMode_uniformId, 5);
 		glBindVertexArray(housesMeshes[houseId].vao);
 
 		glDrawElements(housesMeshes[houseId].type, housesMeshes[houseId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -467,6 +467,10 @@ void renderTrees(void) {
 
 	GLint loc;
 	int treeId = 0;
+
+	// Enable blending for transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	for (int i = 0; i < 5; ++i) {
 
@@ -501,6 +505,9 @@ void renderTrees(void) {
 		popMatrix(MODEL);
 		treeId++;
 	}
+
+	// Disable blending after rendering
+	glDisable(GL_BLEND);
 }
 
 void renderSleigh(void) {
@@ -629,7 +636,7 @@ void renderPawns(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
-		glUniform1i(texMode_uniformId, 3);
+		glUniform1i(texMode_uniformId, 2);
 		glBindVertexArray(pawnsMeshes[i].vao);
 
 		glDrawElements(pawnsMeshes[i].type, pawnsMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
@@ -717,7 +724,7 @@ void renderScene(void) {
 	glUniform4fv(directional_uniformId, 1, res);
 
 	// Associate Texture Units to Texture Objects
-	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2
+	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, leaf.jpeg in TU3
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
@@ -727,9 +734,13 @@ void renderScene(void) {
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
 
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[3]);
+
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
 	glUniform1i(tex_loc2, 2);
+	glUniform1i(tex_loc3, 3);
 
 	// Render objects
 	renderTerrain();
@@ -1033,6 +1044,7 @@ GLuint setupShaders() {
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
@@ -1121,10 +1133,11 @@ void init()
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
 	
-	glGenTextures(3, TextureArray);
+	glGenTextures(4, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
+	Texture2D_Loader(TextureArray, "leaf.jpeg", 3); // for trees
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
