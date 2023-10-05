@@ -64,6 +64,7 @@ vector<struct MyMesh> myMeshes;
 vector<struct MyMesh> housesMeshes;
 vector<struct MyMesh> treesMeshes;
 vector<struct MyMesh> sleighMesh;
+vector<struct MyMesh> pawnsMeshes;
 MyMesh terrainMesh;
 vector<struct MyMesh> snowballMeshes;
 vector<struct Snowball> snowballs;
@@ -339,12 +340,12 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(20.0f, 0.5f, -50.0f, 1.0f);
-	pointLight[1] = Light(20.0f, 0.5f, -40.0f, 1.0f);
-	pointLight[2] = Light(20.0f, 0.5f, -30.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 0.5f, -20.0f, 1.0f);
-	pointLight[4] = Light(20.0f, 0.5f, -10.0f, 1.0f);
-	pointLight[5] = Light(20.0f, 0.5f, 0.0f, 1.0f);
+	pointLight[0] = Light(20.0f, 0.5f, -40.0f, 1.0f);
+	pointLight[1] = Light(20.0f, 0.5f, -30.0f, 1.0f);
+	pointLight[2] = Light(20.0f, 0.5f, -20.0f, 1.0f);
+	pointLight[3] = Light(20.0f, 0.5f, -10.0f, 1.0f);
+	pointLight[4] = Light(20.0f, 0.5f, -0.0f, 1.0f);
+	pointLight[5] = Light(20.0f, 0.5f, 10.0f, 1.0f);
 }
 
 void setSpotLights() {
@@ -600,6 +601,46 @@ void renderSnowballs(void) {
 	}
 }
 
+void renderPawns(void) {
+	GLint loc;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	for (int i = 0; i < 6; ++i) {
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, pawnsMeshes[i].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, pawnsMeshes[i].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, pawnsMeshes[i].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, pawnsMeshes[i].mat.shininess);
+		pushMatrix(MODEL);
+
+		translate(MODEL, 20.0f, 0.0f, -10.0f*(i-1));
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glUniform1i(texMode_uniformId, 3);
+		glBindVertexArray(pawnsMeshes[i].vao);
+
+		glDrawElements(pawnsMeshes[i].type, pawnsMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+	}
+
+	glDisable(GL_BLEND);
+}
+
 void renderScene(void) {
 
 	FrameCount++;
@@ -696,6 +737,7 @@ void renderScene(void) {
 	renderTrees();
 	renderSleigh();
 	renderSnowballs();
+	renderPawns();
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
@@ -1156,12 +1198,27 @@ void init()
 		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
 		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-		amesh.mat.shininess = shininess;
+		amesh.mat.shininess = 1.0f;
 		amesh.mat.texCount = texcount;
 		snowballMeshes.push_back(amesh);
 
 		Snowball s = Snowball(50.0f);
 		snowballs.push_back(s);
+	}
+
+	float t_amb[] = { 0.2f, 0.15f, 0.1f, 0.3f }; // Set the alpha value to control transparency
+	float t_diff[] = { 1.0f, 0.8f, 0.0f, 0.3f };
+
+	for (int i = 0; i < 6; i++) {
+		// create geometry and VAO of the pawn
+		amesh = createPawn();
+		memcpy(amesh.mat.ambient, t_amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, t_diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = 50.0f;
+		amesh.mat.texCount = texcount;
+		pawnsMeshes.push_back(amesh);
 	}
 
 	// initialize obstacles
@@ -1179,6 +1236,7 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 }
