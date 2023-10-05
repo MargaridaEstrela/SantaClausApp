@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <vector>
 
+#include "AABB.h"
+
 class Snowball {
 public:
 	// Constructors
@@ -19,6 +21,7 @@ public:
 	float* getSnowballPosition(void);
 	float getSnowballSpeed(void);
 	float* getSnowballDirection(void);
+	AABB getSnowballAABB(void);
 
 	float* updateSnowballPosition(float delta);
 	void generateRandomParameters(float radius);
@@ -26,6 +29,7 @@ public:
 	float pos[2];
 	float speed;
 	float direction[2];
+	AABB aabb;
 };
 
 #endif

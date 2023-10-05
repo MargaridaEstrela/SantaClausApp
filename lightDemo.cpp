@@ -38,6 +38,8 @@
 #include "camera.h"
 #include "light.h"
 #include "snowball.h"
+#include "obstacle.h"
+#include "AABB.h"
 
 using namespace std;
 
@@ -89,7 +91,7 @@ GLint texMode_uniformId;
 GLuint TextureArray[3];
 
 // Snowballs
-int snowball_num = 30;
+int snowball_num = 50;
 
 // Cameras
 Camera cams[3];
@@ -120,12 +122,112 @@ Light pointLight[n_pointLights];
 Light spotlight[n_spotlights];
 float spotDir[4];
 
-// Sleigh coordinates
-float sleigh_x = 10.0f, sleigh_y = 5.0f, sleigh_z = 10.0f;
+// Sleigh
+float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
+float init_x = 10.0f, init_y = 5.0f, init_z = 10.0f;
+float sleigh_x = init_x, sleigh_y = init_y, sleigh_z = init_z;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
 float sleigh_speed = 0.0f, max_speed = 2.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
 float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
+AABB sleigh_aabb = AABB();
+
+// Obstacles
+float house_height = 4.0f, house_width = 4.8f;
+vector<struct Obstacle> houses;
+float tree_height = 3.0f, tree_width = 1.8f;
+vector<struct Obstacle> trees;
+
+void updateSleighAABB(float x, float y, float z) {
+	float x_min = 50, x_max = -50, y_min = 50, y_max = -50, z_min = 50, z_max = -50;
+	float sleigh_vertices[8][3] = {
+		{ -sleigh_width / 2, -sleigh_height / 2, -sleigh_length / 2 },
+		{ -sleigh_width / 2, -sleigh_height / 2, sleigh_length / 2 },
+		{ -sleigh_width / 2, sleigh_height / 2, -sleigh_length / 2 },
+		{ -sleigh_width / 2, sleigh_height / 2, sleigh_length / 2 },
+		{ sleigh_width / 2, -sleigh_height / 2, -sleigh_length / 2 },
+		{ sleigh_width / 2, -sleigh_height / 2, sleigh_length / 2 },
+		{ sleigh_width / 2, sleigh_height / 2, -sleigh_length / 2 },
+		{ sleigh_width / 2, sleigh_height / 2, sleigh_length / 2 }
+	};
+
+	// Apply transformations to sleigh vertices
+	for (int i = 0; i < 8; i++) {
+		// Rotate around the vertical axis (sleigh_angle_h)
+		float temp_x = sleigh_vertices[i][0] * cos(sleigh_angle_h * (3.14f / 180)) -
+			sleigh_vertices[i][2] * sin(sleigh_angle_h * (3.14f / 180));
+		float temp_z = sleigh_vertices[i][0] * sin(sleigh_angle_h * (3.14f / 180)) +
+			sleigh_vertices[i][2] * cos(sleigh_angle_h * (3.14f / 180));
+
+		sleigh_vertices[i][0] = temp_x;
+		sleigh_vertices[i][2] = temp_z;
+
+		// Rotate around the horizontal axis (sleigh_angle_v)
+		float temp_y = sleigh_vertices[i][1] * cos(sleigh_angle_v * (3.14f / 180)) -
+			sleigh_vertices[i][2] * sin(sleigh_angle_v * (3.14f / 180));
+		temp_z = sleigh_vertices[i][1] * sin(sleigh_angle_v * (3.14f / 180)) +
+			sleigh_vertices[i][2] * cos(sleigh_angle_v * (3.14f / 180));
+
+		sleigh_vertices[i][1] = temp_y;
+		sleigh_vertices[i][2] = temp_z;
+
+		// Translate to the center of the sleigh
+		sleigh_vertices[i][0] += x;
+		sleigh_vertices[i][1] += y;
+		sleigh_vertices[i][2] += z;
+
+		// Update AABB
+		if (sleigh_vertices[i][0] < x_min) x_min = sleigh_vertices[i][0];
+		if (sleigh_vertices[i][0] > x_max) x_max = sleigh_vertices[i][0];
+		if (sleigh_vertices[i][1] < y_min) y_min = sleigh_vertices[i][1];
+		if (sleigh_vertices[i][1] > y_max) y_max = sleigh_vertices[i][1];
+		if (sleigh_vertices[i][2] < z_min) z_min = sleigh_vertices[i][2];
+		if (sleigh_vertices[i][2] > z_max) z_max = sleigh_vertices[i][2];
+	}
+
+	sleigh_aabb.update(x_min, x_max, y_min, y_max, z_min, z_max);
+}
+
+bool checkCollisions(float x, float y, float z) {
+	//update sleigh aabb
+	updateSleighAABB(x, y, z);
+
+	//check collision with trees
+	for (int i = 0; i < trees.size(); ++i) {
+		if (trees[i].getObstacleAABB().intersects(sleigh_aabb)) {
+			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
+			if (trees[i].getIsHit() == false) {
+				trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
+				trees[i].setIsHit(true);
+			}
+			return true;
+		}
+	}
+
+	//check collision with houses
+	for (int i = 0; i < houses.size(); ++i) {
+		if (houses[i].getObstacleAABB().intersects(sleigh_aabb)) {
+			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
+			if (houses[i].getIsHit() == false) {
+				houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
+				houses[i].setIsHit(true);
+			}
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void resetCollisions() {
+	for (int i = 0; i < trees.size(); ++i) {
+		trees[i].setIsHit(false);
+	}
+
+	for (int i = 0; i < houses.size(); ++i) {
+		houses[i].setIsHit(false);
+	}
+}
 
 void refresh(int value)
 {
@@ -147,17 +249,23 @@ void timer(int value)
 	sleigh_direction_y = - sin(sleigh_angle_v * 3.14 / 180);
 	sleigh_direction_z = cos(sleigh_angle_h * 3.14f / 180);
 
-	sleigh_x -= sleigh_direction_x * sleigh_speed * delta_t;
-	sleigh_y -= sleigh_direction_y * sleigh_speed * delta_t;
-	sleigh_z -= sleigh_direction_z * sleigh_speed * delta_t;
+	float new_x, new_y, new_z;
+	new_x = sleigh_x - sleigh_direction_x * sleigh_speed * delta_t;
+	new_y = sleigh_y - sleigh_direction_y * sleigh_speed * delta_t;
+	new_z = sleigh_z - sleigh_direction_z * sleigh_speed * delta_t;
 
-	for (int i = 0; i < snowball_num; ++i) {
+	if(new_y < sleigh_height / 2)
+		new_y = sleigh_height / 2;
+
+	bool collision = checkCollisions(new_x, new_y, new_z);
+
+	for (int i = 2; i < snowball_num; ++i) {
 		snowballs[i].updateSnowballPosition(delta_t);
 		if (snowballs[i].speed > 0) {
-			snowballs[i].speed += 0.01f;
+			snowballs[i].speed += 0.001f;
 		}
 		else {
-			snowballs[i].speed -= 0.005f;
+			snowballs[i].speed -= 0.001f;
 		}
 
 		if (snowballs[i].getSnowballPosition()[0] > 50.0f ||
@@ -166,6 +274,31 @@ void timer(int value)
 			snowballs[i].getSnowballPosition()[1] < -50.0f) {
 			snowballs[i].generateRandomParameters(50.0f);
 		}
+
+		//check collision with snowballs
+		if (snowballs[i].getSnowballAABB().intersects(sleigh_aabb)) {
+			sleigh_speed = 0.0f;
+			sleigh_x = init_x;
+			sleigh_y = init_y;
+			sleigh_z = init_z;
+			sleigh_angle_v = 0.0f;
+			sleigh_angle_h = 0.0f;
+			sleigh_direction_x = 0.0f;
+			sleigh_direction_y = 0.0f;
+			sleigh_direction_z = 0.0f;
+			collision = true;
+			resetCollisions();
+		}
+	}
+	
+	if (!collision) {
+		sleigh_x = new_x;
+		sleigh_y = new_y;
+		sleigh_z = new_z;
+		resetCollisions();
+	}
+	else {
+		sleigh_speed = 0.0f;
 	}
 
 	if (tracking == 0) {
@@ -176,23 +309,6 @@ void timer(int value)
 
 		cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
-	}
-
-	for (int i = 0; i < snowball_num; ++i) {
-		snowballs[i].updateSnowballPosition(delta_t);
-		if (snowballs[i].speed > 0) {
-			snowballs[i].speed += 0.01f;
-		}
-		else {
-			snowballs[i].speed -= 0.005f;
-		}
-
-		if (snowballs[i].getSnowballPosition()[0] > 50.0f ||
-			snowballs[i].getSnowballPosition()[0] < -50.0f ||
-			snowballs[i].getSnowballPosition()[1] > 50.0f ||
-			snowballs[i].getSnowballPosition()[1] < -50.0f) {
-			snowballs[i].generateRandomParameters(50.0f);
-		}
 	}
 
 	glutTimerFunc(1 / delta_t, timer, 0);
@@ -232,8 +348,8 @@ void setPointLights() {
 }
 
 void setSpotLights() {
-	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y, sleigh_z - 5.0f, 1.0f);
-	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y, sleigh_z - 5.0f, 1.0f);
+	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
 
 	spotDir[0] = -sleigh_direction_x;
 	spotDir[1] = -sleigh_direction_y;
@@ -317,10 +433,12 @@ void renderHouses(void) {
 
 		// set position and scale
 		if (i < 4) {
-			translate(MODEL, 0.0f, 0.0f, i * -8.0f);
+			float* pos = houses[i].getObstaclePosition();
+			translate(MODEL, pos[0], 0.0f, pos[1]);
 			scale(MODEL, 3.0f, 3.0f, 3.0f);
 		} else {
-			translate(MODEL, 1.5f, 3.0f, (i-4.2) * -8.0f);
+			float* pos = houses[i-4].getObstaclePosition();
+			translate(MODEL, pos[0] + 1.5f, 3.0f, pos[1] - 0.2 * -8.0f);
 			rotate(MODEL, -45.0f, 0.0f, 1.0f, 0.0f);
 		}
 
@@ -362,8 +480,8 @@ void renderTrees(void) {
 		pushMatrix(MODEL);
 
 		// set position and scale
-		translate(MODEL, 1.5f, 0.0f, (i - 0.68f) * -8.0f);
-		scale(MODEL, 3.0f, 3.0f, 3.0f);
+		float* pos = trees[i].getObstaclePosition();
+		translate(MODEL, pos[0], 0.0f, pos[1]);
 
 		// send matrices to OGL
 		computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -460,9 +578,8 @@ void renderSnowballs(void) {
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, snowballMeshes[i].mat.shininess);
 		pushMatrix(MODEL);
-
+		
 		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
-		// rotate in the direction of the movement
 		rotate(MODEL, atan2(snowballs[i].direction[1], snowballs[i].direction[0]) * 180.0f / 3.14f, 0.0f, 1.0f, 0.0f);
 
 		// send matrices to OGL
@@ -521,7 +638,6 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	glUniform1i(fogOnId, fog);
 	glUniform1i(directionalLightOnId, directionalLightOn);
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
@@ -559,10 +675,8 @@ void renderScene(void) {
 	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
 	glUniform4fv(directional_uniformId, 1, res);
 
-
 	// Associate Texture Units to Texture Objects
 	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2
-
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
@@ -644,7 +758,7 @@ void processKeys(void)
 	}
 	else if (sleigh_speed == 0 || !keyStates['o']) {
 		sleigh_speed -= delta_s;
-		
+
 		if (sleigh_speed > 0) sleigh_speed -= delta_s * delta_t;
 		if (sleigh_speed < 0) sleigh_speed = 0.0f;
 
@@ -740,6 +854,7 @@ void processKeysUp(unsigned char key, int xx, int yy)
 	keyStates[key] = false;     // Set the state of the current key to not pressed
 	std::cout << key << " up" << std::endl;
 }
+
 
 // ------------------------------------------------------------
 //
@@ -870,7 +985,7 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-
+	
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
@@ -963,7 +1078,7 @@ void init()
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
-
+	
 	glGenTextures(3, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
@@ -998,43 +1113,6 @@ void init()
 		sleighMesh.push_back(amesh);
 	}
 
-	/*
-
-	// create geometry and VAO of the sphere
-	amesh = createSphere(1.0f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	float amb1[]= {0.3f, 0.0f, 0.0f, 1.0f};
-	float diff1[] = {0.8f, 0.1f, 0.1f, 1.0f};
-	float spec1[] = {0.9f, 0.9f, 0.9f, 1.0f};
-	shininess=500.0;
-
-	// create geometry and VAO of the cylinder
-	amesh = createCylinder(1.5f, 0.5f, 20);
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	// create geometry and VAO of the cone
-	amesh = createCone(1.5f, 0.5f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh); */
-
 	for (int i = 0; i < 4; i++) {
 		// create geometry and VAO of the cube for each house
 		amesh = createCube();
@@ -1061,7 +1139,7 @@ void init()
 
 	for (int i = 0; i < 5; i++) {
 		// create geometry and VAO of the cone for each tree
-		amesh = createCone(1.0f, 0.3f, 20);
+		amesh = createCone(3.0f, 0.9f, 20);
 		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
@@ -1084,6 +1162,17 @@ void init()
 
 		Snowball s = Snowball(50.0f);
 		snowballs.push_back(s);
+	}
+
+	// initialize obstacles
+	for (int i = 0; i < 4; i++) {
+		Obstacle house = Obstacle(0.0f, i * -8.0f, house_width, house_height, house_width);
+		houses.push_back(house);
+	}
+
+	for (int i = 0; i < 5; i++) {
+		Obstacle tree = Obstacle(1.5f, (i - 0.68f) * -8.0f, tree_width, tree_height, tree_width);
+		trees.push_back(tree);
 	}
 
 	// some GL settings
@@ -1115,7 +1204,7 @@ int main(int argc, char** argv) {
 	WindowHandle = glutCreateWindow(CAPTION);
 
 
-	// Callback Registration
+	//  Callback Registration
 	glutDisplayFunc(renderScene);
 	glutReshapeFunc(changeSize);
 
