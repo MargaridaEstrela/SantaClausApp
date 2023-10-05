@@ -47,6 +47,9 @@ int WinX = 1024, WinY = 768;
 
 unsigned int FrameCount = 0;
 
+//keyboard inputs
+bool keyStates[256];
+
 //shaders
 VSShaderLib shader;  //geometry
 VSShaderLib shaderText;  //render bitmap text
@@ -194,8 +197,6 @@ void timer(int value)
 
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
-
-
 
 // ------------------------------------------------------------
 //
@@ -601,7 +602,87 @@ void renderScene(void) {
 // Events from the Keyboard
 //
 
-void processKeys(unsigned char key, int xx, int yy)
+void processKeys(void)
+{
+	if (keyStates['o']) {										// key 'o' pressed
+		sleigh_speed += delta_s;
+
+		if (sleigh_speed > 0) sleigh_speed -= delta_s * delta_t;
+		if (sleigh_speed > max_speed) sleigh_speed = max_speed;
+
+		// key 'a' pressed
+		if (keyStates['a']) {
+			sleigh_angle_h += delta_h;
+
+			if (keyStates['w']) sleigh_angle_v += delta_v;			// key 'w' pressed
+			else if (keyStates['s']) sleigh_angle_v -= delta_v;		// key 's' pressed
+		}
+
+		// key 'd' pressed
+		else if (keyStates['d']) {
+			sleigh_angle_h -= delta_h;
+
+			if (keyStates['w']) sleigh_angle_v += delta_v;			// key 'w' pressed
+			else if (keyStates['s']) sleigh_angle_v -= delta_v;		// key 's' pressed
+		}
+
+		// key 'w' pressed
+		else if (keyStates['w']) {
+			sleigh_angle_v += delta_v;
+
+			if (keyStates['a']) sleigh_angle_h += delta_h;			// key 'a' pressed
+			else if (keyStates['d']) sleigh_angle_h -= delta_h;;	// key 'd' pressed
+		}
+
+		// key 's' pressed
+		else if (keyStates['s']) {
+			sleigh_angle_v -= delta_v;
+
+			if (keyStates['a']) sleigh_angle_h += delta_h;			// key 'a' pressed
+			else if (keyStates['d']) sleigh_angle_h -= delta_h;;	// key 'd' pressed
+		}
+	}
+	else if (sleigh_speed == 0 || !keyStates['o']) {
+		sleigh_speed -= delta_s;
+		
+		if (sleigh_speed > 0) sleigh_speed -= delta_s * delta_t;
+		if (sleigh_speed < 0) sleigh_speed = 0.0f;
+
+		// key 'a' pressed
+		if (keyStates['a']) {
+			sleigh_angle_h += delta_h;
+
+			if (keyStates['w']) sleigh_angle_v += delta_v;			// key 'w' pressed
+			else if (keyStates['s']) sleigh_angle_v -= delta_v;		// key 's' pressed
+		}
+
+		// key 'd' pressed
+		else if (keyStates['d']) {
+			sleigh_angle_h -= delta_h;
+
+			if (keyStates['w']) sleigh_angle_v += delta_v;			// key 'w' pressed
+			else if (keyStates['s']) sleigh_angle_v -= delta_v;		// key 's' pressed
+		}
+
+		// key 'w' pressed
+		else if (keyStates['w']) {
+			sleigh_angle_v += delta_v;
+
+			if (keyStates['a']) sleigh_angle_h += delta_h;			// key 'a' pressed
+			else if (keyStates['d']) sleigh_angle_h -= delta_h;;	// key 'd' pressed
+		}
+
+		// key 's' pressed
+		else if (keyStates['s']) {
+			sleigh_angle_v -= delta_v;
+
+			if (keyStates['a']) sleigh_angle_h += delta_h;			// key 'a' pressed
+			else if (keyStates['d']) sleigh_angle_h -= delta_h;;	// key 'd' pressed
+		}
+	}
+}
+
+void processKeysDown(unsigned char key, int xx, int yy)
 {
 	switch (key) {
 	case 27:
@@ -625,7 +706,7 @@ void processKeys(unsigned char key, int xx, int yy)
 		changeSpotlightsMode();
 		break;
 
-	case 'n': 
+	case 'n':
 		directionalLightOn = !directionalLightOn;
 		printf("DirectionalLight %s\n", directionalLightOn ? "ON" : "OFF");
 		changeDirectionalLightMode();
@@ -634,34 +715,6 @@ void processKeys(unsigned char key, int xx, int yy)
 	case 'f':
 		fog = !fog;
 		break;
-
-	case 'a':
-		sleigh_angle_h += delta_h;
-		break;
-
-	case 'd':
-		sleigh_angle_h -= delta_h;
-		break;
-
-	case 'w':
-		sleigh_angle_v += delta_v;
-		break;
-
-	case 's':
-		sleigh_angle_v -= delta_v;
-		break;
-
-	case 'o':
-		sleigh_speed += delta_s;
-
-		if (sleigh_speed > 0) {
-			sleigh_speed -= delta_s * delta_t;
-		} 
-		if (sleigh_speed > max_speed) {
-			sleigh_speed = max_speed;
-		}
-		break;
-
 	case '1':
 		activeCam = 0;
 		break;
@@ -673,10 +726,20 @@ void processKeys(unsigned char key, int xx, int yy)
 	case '3':
 		activeCam = 2;
 		break;
+	default:
+		keyStates[key] = true;
+		std::cout << key << " down" << std::endl;
+		break;
 	}
 
+	processKeys();
 }
 
+void processKeysUp(unsigned char key, int xx, int yy)
+{
+	keyStates[key] = false;     // Set the state of the current key to not pressed
+	std::cout << key << " up" << std::endl;
+}
 
 // ------------------------------------------------------------
 //
@@ -1052,15 +1115,16 @@ int main(int argc, char** argv) {
 	WindowHandle = glutCreateWindow(CAPTION);
 
 
-	//  Callback Registration
+	// Callback Registration
 	glutDisplayFunc(renderScene);
 	glutReshapeFunc(changeSize);
 
 	glutTimerFunc(0, timer, 0);
 	glutTimerFunc(0, refresh, 0);    //use it to to get 60 FPS whatever
 
-	//	Mouse and Keyboard Callbacks
-	glutKeyboardFunc(processKeys);
+	// Mouse and Keyboard Callbacks
+	glutKeyboardUpFunc(processKeysUp);
+	glutKeyboardFunc(processKeysDown);
 	glutMouseFunc(processMouseButtons);
 	glutMotionFunc(processMouseMotion);
 	glutMouseWheelFunc(mouseWheel);
