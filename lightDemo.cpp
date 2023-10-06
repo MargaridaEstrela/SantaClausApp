@@ -128,7 +128,7 @@ float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
 float init_x = 10.0f, init_y = 5.0f, init_z = 10.0f;
 float sleigh_x = init_x, sleigh_y = init_y, sleigh_z = init_z;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
-float sleigh_speed = 0.0f, max_speed = 5.0f;
+float sleigh_speed = 0.0f, max_speed = 10.0f;
 float delta_t = 0.05, delta_v = 3.0f, delta_h = 3.0f, delta_s = 0.01f;
 float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z = 0.0f;
 AABB sleigh_aabb = AABB();
@@ -138,6 +138,8 @@ float house_height = 4.0f, house_width = 4.8f;
 vector<struct Obstacle> houses;
 float tree_height = 3.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
+bool collision = false;
+int keyUp = 0;
 
 void updateSleighAABB(float x, float y, float z) {
 	float x_min = 50, x_max = -50, y_min = 50, y_max = -50, z_min = 50, z_max = -50;
@@ -197,10 +199,7 @@ bool checkCollisions(float x, float y, float z) {
 	for (int i = 0; i < trees.size(); ++i) {
 		if (trees[i].getObstacleAABB().intersects(sleigh_aabb)) {
 			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			if (trees[i].getIsHit() == false) {
-				trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
-				trees[i].setIsHit(true);
-			}
+			trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 3.0);
 			return true;
 		}
 	}
@@ -209,10 +208,7 @@ bool checkCollisions(float x, float y, float z) {
 	for (int i = 0; i < houses.size(); ++i) {
 		if (houses[i].getObstacleAABB().intersects(sleigh_aabb)) {
 			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			if (houses[i].getIsHit() == false) {
-				houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
-				houses[i].setIsHit(true);
-			}
+			houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 3.0);
 			return true;
 		}
 	}
@@ -258,7 +254,7 @@ void timer(int value)
 	if(new_y < sleigh_height / 2)
 		new_y = sleigh_height / 2;
 
-	bool collision = checkCollisions(new_x, new_y, new_z);
+	collision = checkCollisions(new_x, new_y, new_z);
 
 	for (int i = 2; i < snowball_num; ++i) {
 		snowballs[i].updateSnowballPosition(delta_t);
@@ -288,7 +284,7 @@ void timer(int value)
 			sleigh_direction_y = 0.0f;
 			sleigh_direction_z = 0.0f;
 			collision = true;
-			resetCollisions();
+			//resetCollisions();
 		}
 	}
 	
@@ -296,7 +292,7 @@ void timer(int value)
 		sleigh_x = new_x;
 		sleigh_y = new_y;
 		sleigh_z = new_z;
-		resetCollisions();
+		//resetCollisions();
 	}
 	else {
 		sleigh_speed = 0.0f;
@@ -685,7 +681,7 @@ void renderScene(void) {
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
-
+	glUniform1i(fogOnId, fog);
 	glUniform1i(directionalLightOnId, directionalLightOn);
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
@@ -771,7 +767,11 @@ void renderScene(void) {
 
 void processKeys(void)
 {
-	if (keyStates['o']) {										// key 'o' pressed
+	if (!collision) keyUp = 0;
+	if (collision && !keyStates['o']) keyUp++;
+	
+
+	if (keyStates['o'] && (!collision || keyUp > 0)) {							// key 'o' pressed
 		sleigh_speed += delta_s;
 
 		if (sleigh_speed > 0) sleigh_speed -= delta_s * delta_t;
@@ -895,7 +895,6 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		break;
 	default:
 		keyStates[key] = true;
-		std::cout << key << " down" << std::endl;
 		break;
 	}
 
@@ -905,7 +904,6 @@ void processKeysDown(unsigned char key, int xx, int yy)
 void processKeysUp(unsigned char key, int xx, int yy)
 {
 	keyStates[key] = false;     // Set the state of the current key to not pressed
-	std::cout << key << " up" << std::endl;
 }
 
 
