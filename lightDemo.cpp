@@ -773,7 +773,7 @@ void renderScene(void) {
 	setSpotLights();
 	for (int i = 0; i < n_spotlights; i++) {
 		multMatrixPoint(MODEL, spotlight[i].getPosition(), model);
-		multMatrixPoint(VIEW, model, res);
+		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
 		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
 	}
 

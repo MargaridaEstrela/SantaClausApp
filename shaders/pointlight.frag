@@ -23,8 +23,8 @@ struct Materials {
 uniform Materials mat;
 
 uniform vec4 spotDir;
-const float spotCutOff = 0.95;
-const float spotExpo = 20.0f;
+const float spotCosCutOff = 0.93;
+const float spotExp = 40.0f;
 
 const float linear = 0.1;
 const float expo = 0.1;
@@ -73,30 +73,31 @@ void main() {
 		float intensity = max(dot(n,l), 0.0);
 
 		if (i >= 7) {
-			attenuation += 0.1;
 			vec3 sd = normalize(vec3(-spotDir));
 			float spotCos = dot(l, sd);
-			if (spotCos < spotCutOff) intensity = 0.0;
-			else attenuation = 1 / pow(spotCos, spotExpo);
-
-			if (intensity > 0.0) {
-				vec3 h = normalize(l + e);
-				float intSpec = max(dot(h,n), 0.0);
-				spec = mat.specular * pow(intSpec, mat.shininess);
+			attenuation += 0.1;
+			
+			if (spotCos > spotCosCutOff)  {	//inside cone?
+				attenuation = 1 / pow(spotCos, spotExp);
+				intensity = max(dot(n,l), 0.0) * attenuation;
+				if (intensity > 0.0) {
+					vec3 h = normalize(l + e);
+					float intSpec = max(dot(h,n), 0.0);
+					spec = mat.specular * pow(intSpec, mat.shininess) * attenuation;
+				}
 			}
-
-			intensity = intensity * 0.1;
 		}
 
-		if (i < 1 || i >= 7) intensity = intensity * 0.3;
-		else intensity = intensity * 0.5;
+		if (i == 0) intensity *= 0.5;				// directional light
+		else if (i >= 7) intensity *= 0.1;			// spotlights
+		else intensity *= 0.6;						// pointlights
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 
 		if (texMode == 0) // modulate diffuse color with texel color
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
-			colorOut += max(intensity*texel + spec, 0.2*texel) / attenuation;
+			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 		} 
 		else if (texMode == 1) // Roof
 		{
@@ -105,14 +106,14 @@ void main() {
 		}
 		else if (texMode == 2) // sleigh
 		{
-			texel = texture(texmap2, DataIn.tex_coord);  // texel from snow.png
+			texel = texture(texmap2, DataIn.tex_coord);  // texel from lightwood.tga
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 			colorOut[3] = 0.7;
 		}
 		else if (texMode == 3) // snowballs
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+			colorOut += min(intensity*texel + spec, 0.5*texel) / attenuation;
 		}
 		else if (texMode == 4) // trees
 		{
@@ -123,19 +124,19 @@ void main() {
 		else if (texMode == 5) // lamps glass
 		{
 			texel = texture(texmap4, DataIn.tex_coord);  // texel from glass.jpeg
-			colorOut += max(intensity*texel + spec, 0.7*texel) / attenuation;
+			colorOut += max(intensity*texel + spec, 0.3*texel) / attenuation;
 			colorOut[3] = 0.7; 
 		}
 		else if (texMode == 6) // lamps
 		{
 			texel = texture(texmap5, DataIn.tex_coord);  // texel from green_metal.webp
-			colorOut += max(intensity*texel + spec, 0.4*texel) / attenuation;
+			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 		}
 		else // multitexturing	
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
-			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
+			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		}
 
 
