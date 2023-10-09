@@ -65,6 +65,7 @@ vector<struct MyMesh> housesMeshes;
 vector<struct MyMesh> treesMeshes;
 vector<struct MyMesh> sleighMesh;
 vector<struct MyMesh> pawnsMeshes;
+vector<struct MyMesh> lampsMeshes;
 MyMesh terrainMesh;
 vector<struct MyMesh> snowballMeshes;
 vector<struct Snowball> snowballs;
@@ -87,12 +88,15 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5;
 GLint texMode_uniformId;
-GLuint TextureArray[4];
+GLuint TextureArray[6];
 
 // Snowballs
 int snowball_num = 50;
+
+// Lamps
+int lamps_num = 6;
 
 // Cameras
 Camera cams[3];
@@ -138,6 +142,8 @@ float house_height = 4.0f, house_width = 4.8f;
 vector<struct Obstacle> houses;
 float tree_height = 3.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
+float lamp_height = 4.5f, lamp_width = 0.5f;
+vector<struct Obstacle> lamps;
 bool collision = false;
 int keyUp = 0;
 
@@ -199,7 +205,7 @@ bool checkCollisions(float x, float y, float z) {
 	for (int i = 0; i < trees.size(); ++i) {
 		if (trees[i].getObstacleAABB().intersects(sleigh_aabb)) {
 			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 3.0);
+			trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 1.0);
 			return true;
 		}
 	}
@@ -208,7 +214,7 @@ bool checkCollisions(float x, float y, float z) {
 	for (int i = 0; i < houses.size(); ++i) {
 		if (houses[i].getObstacleAABB().intersects(sleigh_aabb)) {
 			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 3.0);
+			houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 1.0);
 			return true;
 		}
 	}
@@ -336,12 +342,12 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(20.0f, 0.5f, -40.0f, 1.0f);
-	pointLight[1] = Light(20.0f, 0.5f, -30.0f, 1.0f);
-	pointLight[2] = Light(20.0f, 0.5f, -20.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 0.5f, -10.0f, 1.0f);
-	pointLight[4] = Light(20.0f, 0.5f, 0.0f, 1.0f);
-	pointLight[5] = Light(20.0f, 0.5f, 10.0f, 1.0f);
+	pointLight[0] = Light(20.0f, 4.25f, -40.0f, 1.0f);
+	pointLight[1] = Light(20.0f, 4.25f, -30.0f, 1.0f);
+	pointLight[2] = Light(20.0f, 4.25f, -20.0f, 1.0f);
+	pointLight[3] = Light(20.0f, 4.25f, -10.0f, 1.0f);
+	pointLight[4] = Light(20.0f, 4.25f, 0.0f, 1.0f);
+	pointLight[5] = Light(20.0f, 4.25f, 10.0f, 1.0f);
 }
 
 void setSpotLights() {
@@ -448,7 +454,7 @@ void renderHouses(void) {
 
 		// Render mesh
 		if (i >= 4) glUniform1i(texMode_uniformId, 1);
-		else  glUniform1i(texMode_uniformId, 5);
+		else  glUniform1i(texMode_uniformId, 7);
 		glBindVertexArray(housesMeshes[houseId].vao);
 
 		glDrawElements(housesMeshes[houseId].type, housesMeshes[houseId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -511,6 +517,10 @@ void renderSleigh(void) {
 	GLint loc;
 	int sleighId = 0;
 
+	// Enable blending for transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	for (int i = 0; i < 5; ++i) {
 
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -566,6 +576,9 @@ void renderSleigh(void) {
 		popMatrix(MODEL);
 		sleighId++;
 	}
+
+	// Disable blending after rendering
+	glDisable(GL_BLEND);
 }
 
 void renderSnowballs(void) {
@@ -644,6 +657,60 @@ void renderPawns(void) {
 	glDisable(GL_BLEND);
 }
 
+void renderLamps(void) {
+	GLint loc;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	for (int i = 0; i < lamps_num*2; ++i) {
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, lampsMeshes[i].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, lampsMeshes[i].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, lampsMeshes[i].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, lampsMeshes[i].mat.shininess);
+		pushMatrix(MODEL);
+
+		// set position and scale
+		if (i < lamps_num) {
+			float* pos = lamps[i].getObstaclePosition();
+			translate(MODEL, pos[0], 0.0f, pos[1]);
+		}
+		else {
+			float* pos = lamps[i - lamps_num].getObstaclePosition();
+			translate(MODEL, pos[0], 2.25f, pos[1]); 
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		if (i < lamps_num) {
+			glUniform1i(texMode_uniformId, 6);
+		}
+		else {
+			glUniform1i(texMode_uniformId, 5);
+
+		}
+		glBindVertexArray(lampsMeshes[i].vao);
+
+		glDrawElements(lampsMeshes[i].type, lampsMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+	}
+
+	glDisable(GL_BLEND);
+}
+
 void renderScene(void) {
 
 	FrameCount++;
@@ -705,7 +772,8 @@ void renderScene(void) {
 	float model[4];
 	setSpotLights();
 	for (int i = 0; i < n_spotlights; i++) {
-		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
+		multMatrixPoint(MODEL, spotlight[i].getPosition(), model);
+		multMatrixPoint(VIEW, model, res);
 		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
 	}
 
@@ -733,10 +801,18 @@ void renderScene(void) {
 	glActiveTexture(GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[3]);
 
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[4]);
+
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
+
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
 	glUniform1i(tex_loc2, 2);
 	glUniform1i(tex_loc3, 3);
+	glUniform1i(tex_loc4, 4);
+	glUniform1i(tex_loc5, 5);
 
 	// Render objects
 	renderTerrain();
@@ -744,7 +820,7 @@ void renderScene(void) {
 	renderTrees();
 	renderSleigh();
 	renderSnowballs();
-	renderPawns();
+	renderLamps();
 
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
@@ -759,7 +835,6 @@ void renderScene(void) {
 }
 
 
-
 // ------------------------------------------------------------
 //
 // Events from the Keyboard
@@ -767,11 +842,9 @@ void renderScene(void) {
 
 void processKeys(void)
 {
-	if (!collision) keyUp = 0;
-	if (collision && !keyStates['o']) keyUp++;
+	if (collision && keyStates['o']) keyStates['o'] = !keyStates['o'];
 	
-
-	if (keyStates['o'] && (!collision || keyUp > 0)) {							// key 'o' pressed
+	if (keyStates['o']) {											// key 'o' pressed
 		sleigh_speed += delta_s;
 
 		if (sleigh_speed > 0) sleigh_speed -= delta_s * delta_t;
@@ -1043,6 +1116,8 @@ GLuint setupShaders() {
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
 	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
+	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
+	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
@@ -1131,11 +1206,13 @@ void init()
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
 	
-	glGenTextures(4, TextureArray);
+	glGenTextures(6, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
 	Texture2D_Loader(TextureArray, "leaf.jpeg", 3); // for trees
+	Texture2D_Loader(TextureArray, "glass.jpeg", 4); // for lamps
+	Texture2D_Loader(TextureArray, "green_metal.jpeg", 5); // for lamps
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
@@ -1144,7 +1221,11 @@ void init()
 	float shininess = 100.0f;
 	int texcount = 0;
 
-	// create geometry and VAO of the terrain
+	//
+	// TERRAIN
+	//
+	 
+	//create geometry and VAO of the terrain
 	terrainMesh = createQuad(100.0f, 100.0f);
 	memcpy(terrainMesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(terrainMesh.mat.diffuse, diff, 4 * sizeof(float));
@@ -1153,6 +1234,9 @@ void init()
 	terrainMesh.mat.shininess = shininess;
 	terrainMesh.mat.texCount = texcount;
 
+	//
+	// SLEIGH
+	//
 
 	for (int i = 0; i < 5; i++) {
 		// create geometry and VAO of the sleigh
@@ -1165,6 +1249,10 @@ void init()
 		amesh.mat.texCount = texcount;
 		sleighMesh.push_back(amesh);
 	}
+
+	//
+	// HOUSES
+	//
 
 	for (int i = 0; i < 4; i++) {
 		// create geometry and VAO of the cube for each house
@@ -1190,6 +1278,10 @@ void init()
 		housesMeshes.push_back(amesh);
 	}
 
+	//
+	// TREES
+	//
+
 	for (int i = 0; i < 5; i++) {
 		// create geometry and VAO of the cone for each tree
 		amesh = createCone(3.0f, 0.9f, 20);
@@ -1201,6 +1293,10 @@ void init()
 		amesh.mat.texCount = texcount;
 		treesMeshes.push_back(amesh);
 	}
+
+	//
+	// SNOWBALL
+	//
 
 	for (int i = 0; i < snowball_num; i++) {
 		// create geometry and VAO of the sphere for each snowball
@@ -1217,6 +1313,10 @@ void init()
 		snowballs.push_back(s);
 	}
 
+	//
+	// PAWNS
+	//
+
 	float t_amb[] = { 0.2f, 0.15f, 0.1f, 0.3f }; // Set the alpha value to control transparency
 	float t_diff[] = { 1.0f, 0.8f, 0.0f, 0.3f };
 
@@ -1232,6 +1332,34 @@ void init()
 		pawnsMeshes.push_back(amesh);
 	}
 
+	//
+	// LAMPS
+	//
+
+	for (int i = 0; i < lamps_num; i++) {
+		// create geometry and VAO of the lamps'cylinder
+		amesh = createCylinder(4.0f, 0.06f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = shininess;
+		amesh.mat.texCount = texcount;
+		lampsMeshes.push_back(amesh);
+	}
+
+	for (int i = lamps_num; i < lamps_num * 2; i++) {
+		// create geometry and VAO of the lamps' sphere
+		amesh = createSphere(0.25f, 20);
+		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+		amesh.mat.shininess = 50.0f;
+		amesh.mat.texCount = texcount;
+		lampsMeshes.push_back(amesh);
+	}
+
 	// initialize obstacles
 	for (int i = 0; i < 4; i++) {
 		Obstacle house = Obstacle(0.0f, i * -8.0f, house_width, house_height, house_width);
@@ -1241,6 +1369,11 @@ void init()
 	for (int i = 0; i < 5; i++) {
 		Obstacle tree = Obstacle(1.5f, (i - 0.68f) * -8.0f, tree_width, tree_height, tree_width);
 		trees.push_back(tree);
+	}
+
+	for (int i = 0; i < lamps_num; i++) {
+		Obstacle lamp = Obstacle(20.0f, 10.0f - i*10.0f, lamp_width, lamp_height, lamp_width);
+		lamps.push_back(lamp);
 	}
 
 	// some GL settings

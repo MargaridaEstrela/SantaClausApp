@@ -4,6 +4,8 @@ uniform sampler2D texmap;
 uniform sampler2D texmap1;
 uniform sampler2D texmap2;
 uniform sampler2D texmap3;
+uniform sampler2D texmap4;
+uniform sampler2D texmap5;
 
 uniform int texMode;
 
@@ -70,8 +72,6 @@ void main() {
 		
 		float intensity = max(dot(n,l), 0.0);
 
-		
-
 		if (i >= 7) {
 			attenuation += 0.1;
 			vec3 sd = normalize(vec3(-spotDir));
@@ -88,8 +88,8 @@ void main() {
 			intensity = intensity * 0.1;
 		}
 
-		if (i >= 1 && i < 7) intensity = intensity * 0.5;
-		else intensity = intensity * 0.3;
+		if (i < 1 || i >= 7) intensity = intensity * 0.3;
+		else intensity = intensity * 0.5;
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 
@@ -107,17 +107,29 @@ void main() {
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from snow.png
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+			colorOut[3] = 0.7;
 		}
 		else if (texMode == 3) // snowballs
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut += min(intensity*texel + spec, 0.07*texel);
+			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 		}
 		else if (texMode == 4) // trees
 		{
 			texel = texture(texmap3, DataIn.tex_coord);  // texel from leaf.jpeg
 			colorOut += min(intensity*texel + spec, 0.07*texel);
 			colorOut[3] = 0.8; 
+		}
+		else if (texMode == 5) // lamps glass
+		{
+			texel = texture(texmap4, DataIn.tex_coord);  // texel from glass.jpeg
+			colorOut += max(intensity*texel + spec, 0.7*texel) / attenuation;
+			colorOut[3] = 0.7; 
+		}
+		else if (texMode == 6) // lamps
+		{
+			texel = texture(texmap5, DataIn.tex_coord);  // texel from green_metal.webp
+			colorOut += max(intensity*texel + spec, 0.4*texel) / attenuation;
 		}
 		else // multitexturing	
 		{
