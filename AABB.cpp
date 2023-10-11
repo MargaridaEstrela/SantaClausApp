@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include "AABB.h"
 
 AABB::AABB() {
@@ -36,4 +37,17 @@ bool AABB::intersects(AABB aabb) {
 				return true;
 
 	return false;
+}
+
+float* AABB::getIntersectionDistance(AABB aabb) {
+
+	float* distances = new float[2];
+
+	// Calculate the overlap in the X-axis
+	distances[0] = std::max(0.0f, std::min(xmax, aabb.xmax) - std::max(xmin, aabb.xmin));
+
+	// Calculate the overlap in the Y-axis
+	distances[1] = std::max(0.0f, std::min(ymax, aabb.ymax) - std::max(ymin, aabb.ymin));
+
+	return distances;
 }

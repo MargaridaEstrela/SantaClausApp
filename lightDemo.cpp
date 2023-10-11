@@ -138,7 +138,7 @@ float sleigh_direction_x = 0.0f, sleigh_direction_y = 0.0f, sleigh_direction_z =
 AABB sleigh_aabb = AABB();
 
 // Obstacles
-float house_height = 4.0f, house_width = 4.8f;
+float house_height = 4.0f, house_width = 6.0f;
 vector<struct Obstacle> houses;
 float tree_height = 3.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
@@ -204,8 +204,7 @@ bool checkCollisions(float x, float y, float z) {
 	//check collision with trees
 	for (int i = 0; i < trees.size(); ++i) {
 		if (trees[i].getObstacleAABB().intersects(sleigh_aabb)) {
-			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			trees[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 1.0);
+			trees[i].updateObstaclePosition(sleigh_aabb, sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
 			return true;
 		}
 	}
@@ -213,23 +212,12 @@ bool checkCollisions(float x, float y, float z) {
 	//check collision with houses
 	for (int i = 0; i < houses.size(); ++i) {
 		if (houses[i].getObstacleAABB().intersects(sleigh_aabb)) {
-			//if obstacle was just hit, move slightly, otherwise, just keep sleigh in place
-			houses[i].updateObstaclePosition(sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, 1.0);
+			houses[i].updateObstaclePosition(sleigh_aabb, sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
 			return true;
 		}
 	}
 
 	return false;
-}
-
-void resetCollisions() {
-	for (int i = 0; i < trees.size(); ++i) {
-		trees[i].setIsHit(false);
-	}
-
-	for (int i = 0; i < houses.size(); ++i) {
-		houses[i].setIsHit(false);
-	}
 }
 
 void refresh(int value)
@@ -290,7 +278,6 @@ void timer(int value)
 			sleigh_direction_y = 0.0f;
 			sleigh_direction_z = 0.0f;
 			collision = true;
-			//resetCollisions();
 		}
 	}
 	
@@ -298,7 +285,6 @@ void timer(int value)
 		sleigh_x = new_x;
 		sleigh_y = new_y;
 		sleigh_z = new_z;
-		//resetCollisions();
 	}
 	else {
 		sleigh_speed = 0.0f;

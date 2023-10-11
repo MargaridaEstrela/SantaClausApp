@@ -7,7 +7,6 @@ Obstacle::Obstacle() {
 	this->height = 0.0f;
 	this->length = 0.0f;
 	this->aabb = AABB();
-	this->isHit = false;
 }
 
 Obstacle::Obstacle(float x, float z, float width, float height, float length) {
@@ -16,17 +15,12 @@ Obstacle::Obstacle(float x, float z, float width, float height, float length) {
 	this->height = height;
 	this->length = length;
 	this->aabb = AABB(this->pos[0], this->pos[0] + width / 2, 0.0f, height, this->pos[1], this->pos[1] + length / 2);
-	this->isHit = false;
 }
 
 // Setters
 void Obstacle::setObstaclePosition(float pos_x, float pos_z) {
 	this->pos[0] = pos_x;
 	this->pos[1] = pos_z;
-}
-
-void Obstacle::setIsHit(bool isHit) {
-	this->isHit = isHit;
 }
 
 // Getters
@@ -38,12 +32,9 @@ AABB Obstacle::getObstacleAABB(void) {
 	return this->aabb;
 }
 
-bool Obstacle::getIsHit(void) {
-	return this->isHit;
-}
-
-void Obstacle::updateObstaclePosition(float direction_x, float direction_z, float speed, float delta) {
-	this->pos[0] -= speed * direction_x * delta;
-	this->pos[1] -= speed * direction_z * delta;
+void Obstacle::updateObstaclePosition(AABB sleigh, float direction_x, float direction_z, float speed, float delta) {
+	float* dist_inter = this->aabb.getIntersectionDistance(sleigh);
+	this->pos[0] -= dist_inter[0] -speed * direction_x * delta;
+	this->pos[1] -= dist_inter[1] -speed * direction_z * delta;
 	this->aabb = AABB(this->pos[0], this->pos[0] + width / 2, 0.0f, height, this->pos[1], this->pos[1] + length / 2);
 }
