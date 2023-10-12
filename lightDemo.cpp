@@ -48,13 +48,19 @@ int WindowHandle = 0;
 int WinX = 1024, WinY = 768;
 
 unsigned int FrameCount = 0;
+unsigned int startTime = glutGet(GLUT_ELAPSED_TIME);
 
 //keyboard inputs
 bool keyStates[256];
 
+//game hub
+int points = 0;
+int lives = 5;
+int status = 0;				// 0:run; 1:paused; 2:restart; 3:game over
+
 //shaders
-VSShaderLib shader;  //geometry
-VSShaderLib shaderText;  //render bitmap text
+VSShaderLib shader;			//geometry
+VSShaderLib shaderText;		//render bitmap text
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
@@ -95,8 +101,10 @@ GLuint TextureArray[6];
 // Snowballs
 int snowball_num = 50;
 
-// Lamps
+// Counters
 int lamps_num = 6;
+int houses_num = 4;
+int trees_num = 5;
 
 // Cameras
 Camera cams[3];
@@ -278,6 +286,12 @@ void timer(int value)
 			sleigh_direction_y = 0.0f;
 			sleigh_direction_z = 0.0f;
 			collision = true;
+			lives--;
+		}
+
+		if (lives == 0) {
+			status = 3; // game over
+			break;
 		}
 	}
 	
@@ -300,6 +314,7 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
+	points++;
 	glutTimerFunc(1/delta_t, timer, 0);
 }
 
@@ -702,9 +717,6 @@ void renderScene(void) {
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	int m_viewport[4];
-	glGetIntegerv(GL_VIEWPORT, m_viewport);
-
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
 
@@ -808,18 +820,77 @@ void renderScene(void) {
 	renderSnowballs();
 	renderLamps();
 
+	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
+	glDisable(GL_DEPTH_TEST);
+	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	//viewer at origin looking down at  negative z direction
+	pushMatrix(MODEL);
+	loadIdentity(MODEL);
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
 	pushMatrix(VIEW);
 	loadIdentity(VIEW);
+
+	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+
+	std::cout << status << std::endl;
+
+	if (status == 1) RenderText(shaderText, "Paused", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
+	else if (status == 2) RenderText(shaderText, "Game Restarted", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
+	else if (status == 3) {
+		RenderText(shaderText, "Game Over", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
+		string max_points = "Final Score: " + to_string(points);
+		RenderText(shaderText, max_points, WinX / 2, WinY / 2 - 100, 1.0f, 0.3f, 0.7f, 0.9f);
+	}
+
+	if (status != 3) {
+		string pointsNow = "Points: " + to_string(points);
+		RenderText(shaderText, pointsNow, 20, WinY - 20, 1.0f, 0.5f, 0.8f, 0.2f);
+		string livesNow = "Lives: " + to_string(lives);
+		RenderText(shaderText, livesNow, WinX - 20, WinY - 60, 1.0f, 0.5f, 0.8f, 0.2f);
+	}
 
 	popMatrix(PROJECTION);
 	popMatrix(VIEW);
 	popMatrix(MODEL);
+
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 
 	glutSwapBuffers();
 }
 
+
+// ------------------------------------------------------------
+//
+// Restart Game
+//
+
+void restartGame(void) {
+
+	// restart objects for initial position
+	for (int i = 0; i < houses_num; i++) {
+		houses[i].restartObject();
+	}
+
+	for (int i = 0; i < trees_num; i++) {
+		trees[i].restartObject();
+	}
+
+	for (int i = 0; i < lamps_num; i++) {
+		lamps[i].restartObject();
+	}
+
+	points = 0;
+	lives = 5;
+	status = 0;
+	startTime = glutGet(GLUT_ELAPSED_TIME);
+}
 
 // ------------------------------------------------------------
 //
@@ -941,6 +1012,17 @@ void processKeysDown(unsigned char key, int xx, int yy)
 	case 'f':
 		fog = !fog;
 		break;
+
+	case 'p':
+		if (status == 0) startTime = glutGet(GLUT_ELAPSED_TIME);
+		status = !status;
+		break;
+
+	case 'r':
+		status = 2;
+		restartGame();
+		break;
+
 	case '1':
 		activeCam = 0;
 		break;
@@ -952,6 +1034,7 @@ void processKeysDown(unsigned char key, int xx, int yy)
 	case '3':
 		activeCam = 2;
 		break;
+
 	default:
 		keyStates[key] = true;
 		break;
@@ -995,8 +1078,6 @@ void processMouseButtons(int button, int state, int xx, int yy)
 				r = 0.1f;
 		}
 		tracking = 0;
-
-
 	}
 }
 
@@ -1125,7 +1206,6 @@ GLuint setupShaders() {
 	spotLightR_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotLightR");
 
 	spotDir_uniformId = glGetUniformLocation(shader.getProgramIndex(), "spotDir");
-
 
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
