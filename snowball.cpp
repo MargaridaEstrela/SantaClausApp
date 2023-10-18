@@ -7,6 +7,7 @@ Snowball::Snowball(float radius) {
     float speed = (rand() % 100) / 100.0f - 0.5f;
 
     setSnowballSpeed(speed);
+    setSnowballRadius(radius);
     this->aabb = AABB(this->pos[0] - 0.15f, this->pos[0] + 0.15f, 0.0f, 0.3f, this->pos[1] - 0.15f, this->pos[1] + 0.15f);
 }
 
@@ -31,6 +32,10 @@ void Snowball::setSnowballDirection(float dir_x, float dir_z) {
 	this->direction[1] = dir_z;
 }
 
+void Snowball::setSnowballRadius(float radius) {
+    this->radius = radius;
+}
+
 float* Snowball::getSnowballPosition(void) {
     return this->pos;
 }
@@ -43,8 +48,22 @@ float* Snowball::getSnowballDirection(void) {
 	return this->direction;
 }
 
+float Snowball::getSnowballRadius(void) {
+    return this->radius;
+}
+
 AABB Snowball::getSnowballAABB(void) {
 	return this->aabb;
+}
+
+void Snowball::restart(void) {
+    generateRandomParameters(this->radius);
+
+    //generate random speed with minimim -0.5 and maximum 0.5f
+    float speed = (rand() % 100) / 100.0f - 0.5f;
+
+    setSnowballSpeed(speed);
+    this->aabb = AABB(this->pos[0] - 0.15f, this->pos[0] + 0.15f, 0.0f, 0.3f, this->pos[1] - 0.15f, this->pos[1] + 0.15f);
 }
 
 float* Snowball::updateSnowballPosition(float delta) {

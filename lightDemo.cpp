@@ -207,6 +207,63 @@ void updateSleighAABB(float x, float y, float z) {
 	sleigh_aabb.update(x_min, x_max, y_min, y_max, z_min, z_max);
 }
 
+// ------------------------------------------------------------
+//
+// Restart Sleigh
+//
+
+void restartSleigh(void) {
+
+	sleigh_speed = 0.0f;
+	sleigh_x = init_x;
+	sleigh_y = init_y;
+	sleigh_z = init_z;
+	sleigh_angle_v = 0.0f;
+	sleigh_angle_h = 0.0f;
+	sleigh_direction_x = 0.0f;
+	sleigh_direction_y = 0.0f;
+	sleigh_direction_z = 0.0f;
+}
+
+// ------------------------------------------------------------
+//
+// Restart Game
+//
+
+void restartGame(void) {
+
+	// restart objects for initial position
+	for (int i = 0; i < houses_num; i++) {
+		houses[i].restartObject();
+	}
+
+	for (int i = 0; i < trees_num; i++) {
+		trees[i].restartObject();
+	}
+
+	for (int i = 0; i < lamps_num; i++) {
+		lamps[i].restartObject();
+	}
+
+	for (int i = 0; i < snowball_num; i++) {
+		snowballs[i].restart();
+	}
+
+	restartSleigh();
+
+	score = 0;
+	lives = 5;
+	status = 0;
+	paused = false;
+	startTime = glutGet(GLUT_ELAPSED_TIME);
+
+}
+
+// ------------------------------------------------------------
+//
+// Check Collisions
+//
+
 bool checkCollisions(float x, float y, float z) {
 	//update sleigh aabb
 	updateSleighAABB(x, y, z);
@@ -283,15 +340,7 @@ void timer(int value)
 
 		//check collision with snowballs
 		if (snowballs[i].getSnowballAABB().intersects(sleigh_aabb)) {
-			sleigh_speed = 0.0f;
-			sleigh_x = init_x;
-			sleigh_y = init_y;
-			sleigh_z = init_z;
-			sleigh_angle_v = 0.0f;
-			sleigh_angle_h = 0.0f;
-			sleigh_direction_x = 0.0f;
-			sleigh_direction_y = 0.0f;
-			sleigh_direction_z = 0.0f;
+			restartSleigh();
 			collision = true;
 			lives--;
 		}
@@ -346,34 +395,6 @@ void changeSize(int w, int h) {
 
 // ------------------------------------------------------------
 //
-// Restart Game
-//
-
-void restartGame(void) {
-
-	// restart objects for initial position
-	for (int i = 0; i < houses_num; i++) {
-		houses[i].restartObject();
-	}
-
-	for (int i = 0; i < trees_num; i++) {
-		trees[i].restartObject();
-	}
-
-	for (int i = 0; i < lamps_num; i++) {
-		lamps[i].restartObject();
-	}
-
-	score = 0;
-	lives = 5;
-	status = 0;
-	paused = false;
-	startTime = glutGet(GLUT_ELAPSED_TIME);
-
-}
-
-// ------------------------------------------------------------
-//
 // Lights stuff
 //
 
@@ -419,7 +440,6 @@ void changeSpotlightsMode() {
 		spotlight[i].changeMode();
 	}
 }
-
 
 // ------------------------------------------------------------
 //
@@ -908,9 +928,6 @@ void renderScene(void) {
 	glutSwapBuffers();
 }
 
-
-
-
 // ------------------------------------------------------------
 //
 // Events from the Keyboard
@@ -1040,7 +1057,7 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		break;
 
 	case 'r':
-		restartGame();
+		if (status == 2) restartGame();
 		break;
 
 	case '1':

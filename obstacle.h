@@ -20,8 +20,8 @@ public:
 	float* getObstaclePosition(void);
 	float* getInitialPosition(void);
 	AABB getObstacleAABB(void);
-	void restartObject(void);
 
+	void restartObject(void);
 	void updateObstaclePosition(AABB sleigh, float direction_x, float direction_z, float speed, float delta);
 
 	float initialPos[2];
