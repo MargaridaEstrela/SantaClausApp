@@ -321,8 +321,6 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
-
-
 	score++;
 	glutTimerFunc(1/delta_t, timer, 0);
 }
@@ -796,7 +794,6 @@ void renderScene(void) {
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
 
-
 	// Set pointLights
 	float res[4];
 	for (int i = 0; i < n_pointLights; i++) {
@@ -886,19 +883,19 @@ void renderScene(void) {
 
 	//std::cout << "status " << status << std::endl;
 
-	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 70, WinY / 2, 1.0f, 0.0f, 0.0f, 0.0f);
+	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 85, WinY / 2, 1.0f, 1.0f, 1.0f, 1.0f);
 	else if (status == 2) {
-		RenderText(shaderText, "Game Over", WinX / 2, WinY / 2, 1.0f, 1.0f, 0.0f, 0.0f);
+		RenderText(shaderText, "Game Over", WinX / 2 - 125, WinY / 2, 1.0f, 1.0f, 0.0f, 0.0f);
 		string final_score = "Final Score: " + to_string(score);
-		RenderText(shaderText, final_score, WinX / 2, WinY / 2 - 100, 0.5f, 0.0f, 0.0f, 0.0f);
-		RenderText(shaderText, "Press [R] to restart", WinX / 2 - 200, WinY / 2 + 100, 0.5f, 0.0f, 0.0f, 0.0f);
+		RenderText(shaderText, final_score, WinX / 2 - 85, WinY / 2 - 50, 0.5f, 1.0f, 1.0f, 1.0f);
+		RenderText(shaderText, "Press [R] to restart", WinX / 2 - 85, 50, 0.4f, 1.0f, 1.0f, 1.0f);
 	}
 
 	if (status != 2) {
 		string scoreNow = "Score: " + to_string(score);
-		RenderText(shaderText, scoreNow, 20, WinY - 40, 0.5f, 0.0f, 0.0f, 0.0f);
+		RenderText(shaderText, scoreNow, 20, WinY - 40, 0.5f, 1.0f, 1.0f, 1.0f);
 		string livesNow = "Lives: " + to_string(lives);
-		RenderText(shaderText, livesNow, WinX - 100, WinY - 40, 0.5f, 0.0f, 0.0f, 0.0f);
+		RenderText(shaderText, livesNow, WinX - 100, WinY - 40, 0.5f, 1.0f, 1.0f, 1.0f);
 	}
 
 	popMatrix(PROJECTION);
