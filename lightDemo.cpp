@@ -54,9 +54,11 @@ unsigned int startTime = glutGet(GLUT_ELAPSED_TIME);
 bool keyStates[256];
 
 //game hub
-int points = 0;
+bool paused = false;
+int score = 0;
+int final_score = 0;
 int lives = 5;
-int status = 0;				// 0:run; 1:paused; 2:restart; 3:game over
+int status = 0;				// 0:run; 1:paused; 2:game over
 
 //shaders
 VSShaderLib shader;			//geometry
@@ -290,7 +292,7 @@ void timer(int value)
 		}
 
 		if (lives == 0) {
-			status = 3; // game over
+			status = 2; // game over
 			break;
 		}
 	}
@@ -314,7 +316,7 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
-	points++;
+	score++;
 	glutTimerFunc(1/delta_t, timer, 0);
 }
 
@@ -339,6 +341,34 @@ void changeSize(int w, int h) {
 
 // ------------------------------------------------------------
 //
+// Restart Game
+//
+
+void restartGame(void) {
+
+	// restart objects for initial position
+	for (int i = 0; i < houses_num; i++) {
+		houses[i].restartObject();
+	}
+
+	for (int i = 0; i < trees_num; i++) {
+		trees[i].restartObject();
+	}
+
+	for (int i = 0; i < lamps_num; i++) {
+		lamps[i].restartObject();
+	}
+
+	score = 0;
+	lives = 5;
+	status = 0;
+	paused = false;
+	startTime = glutGet(GLUT_ELAPSED_TIME);
+
+}
+
+// ------------------------------------------------------------
+//
 // Lights stuff
 //
 
@@ -352,8 +382,16 @@ void setPointLights() {
 }
 
 void setSpotLights() {
-	spotlight[0] = Light(sleigh_x - 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
-	spotlight[1] = Light(sleigh_x + 1.0f, sleigh_y + 0.5f, sleigh_z - 1.5f, 1.0f);
+
+	float spot0_x = sin((sleigh_angle_h + 25.0) * 3.14f / 180 );
+	float spot_y = -sin(sleigh_angle_v * 3.14 / 180);
+	float spot0_z = cos((sleigh_angle_h + 50.0) * 3.14f / 180 + 3.14 / 180);
+
+	float spot1_x = sin((sleigh_angle_h - 25.0) * 3.14f / 180 - 3.14f / 180);
+	float spot1_z = cos((sleigh_angle_h - 50.0) * 3.14f / 180 - 3.14 / 180);
+
+	spotlight[0] = Light(sleigh_x + spot0_x, sleigh_y + spot_y, sleigh_z + spot0_z, 1.0f);
+	spotlight[1] = Light(sleigh_x + spot1_x, sleigh_y + spot_y, sleigh_z + spot1_z, 1.0f);
 
 	spotDir[0] = -sleigh_direction_x;
 	spotDir[1] = -sleigh_direction_y;
@@ -822,9 +860,10 @@ void renderScene(void) {
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
-	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	int m_viewport[4];
 	glGetIntegerv(GL_VIEWPORT, m_viewport);
 
@@ -838,21 +877,21 @@ void renderScene(void) {
 
 	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
 
-	std::cout << status << std::endl;
+	//std::cout << "status " << status << std::endl;
 
-	if (status == 1) RenderText(shaderText, "Paused", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
-	else if (status == 2) RenderText(shaderText, "Game Restarted", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
-	else if (status == 3) {
-		RenderText(shaderText, "Game Over", WinX / 2, WinY / 2, 1.0f, 0.3f, 0.7f, 0.9f);
-		string max_points = "Final Score: " + to_string(points);
-		RenderText(shaderText, max_points, WinX / 2, WinY / 2 - 100, 1.0f, 0.3f, 0.7f, 0.9f);
+	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 70, WinY / 2, 1.0f, 0.0f, 0.0f, 0.0f);
+	else if (status == 2) {
+		RenderText(shaderText, "Game Over", WinX / 2, WinY / 2, 1.0f, 1.0f, 0.0f, 0.0f);
+		string final_score = "Final Score: " + to_string(score);
+		RenderText(shaderText, final_score, WinX / 2, WinY / 2 - 100, 0.5f, 0.0f, 0.0f, 0.0f);
+		RenderText(shaderText, "Press [R] to restart", WinX / 2 - 200, WinY / 2 + 100, 0.5f, 0.0f, 0.0f, 0.0f);
 	}
 
-	if (status != 3) {
-		string pointsNow = "Points: " + to_string(points);
-		RenderText(shaderText, pointsNow, 20, WinY - 20, 1.0f, 0.5f, 0.8f, 0.2f);
+	if (status != 2) {
+		string scoreNow = "Score: " + to_string(score);
+		RenderText(shaderText, scoreNow, 20, WinY - 40, 0.5f, 0.0f, 0.0f, 0.0f);
 		string livesNow = "Lives: " + to_string(lives);
-		RenderText(shaderText, livesNow, WinX - 20, WinY - 60, 1.0f, 0.5f, 0.8f, 0.2f);
+		RenderText(shaderText, livesNow, WinX - 100, WinY - 40, 0.5f, 0.0f, 0.0f, 0.0f);
 	}
 
 	popMatrix(PROJECTION);
@@ -866,31 +905,7 @@ void renderScene(void) {
 }
 
 
-// ------------------------------------------------------------
-//
-// Restart Game
-//
 
-void restartGame(void) {
-
-	// restart objects for initial position
-	for (int i = 0; i < houses_num; i++) {
-		houses[i].restartObject();
-	}
-
-	for (int i = 0; i < trees_num; i++) {
-		trees[i].restartObject();
-	}
-
-	for (int i = 0; i < lamps_num; i++) {
-		lamps[i].restartObject();
-	}
-
-	points = 0;
-	lives = 5;
-	status = 0;
-	startTime = glutGet(GLUT_ELAPSED_TIME);
-}
 
 // ------------------------------------------------------------
 //
@@ -1014,12 +1029,13 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		break;
 
 	case 'p':
-		if (status == 0) startTime = glutGet(GLUT_ELAPSED_TIME);
+		if (!paused) startTime = glutGet(GLUT_ELAPSED_TIME);
 		status = !status;
+		paused = !paused;
+		std::cout << "status " << status << std::endl;
 		break;
 
 	case 'r':
-		status = 2;
 		restartGame();
 		break;
 
@@ -1497,6 +1513,8 @@ int main(int argc, char** argv) {
 	printf("Renderer: %s\n", glGetString(GL_RENDERER));
 	printf("Version: %s\n", glGetString(GL_VERSION));
 	printf("GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+	std::cout << "status " << status << std::endl;
 
 	if (!setupShaders())
 		return(1);
