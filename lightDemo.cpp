@@ -245,9 +245,14 @@ void timer(int value)
 	glutSetWindowTitle(s.c_str());
 	FrameCount = 0;
 
+	if (paused) {
+		glutTimerFunc(0, timer, 0);
+		return;
+	}
+
 	//compute motion
 	sleigh_direction_x = sin(sleigh_angle_h * 3.14f / 180);
-	sleigh_direction_y = - sin(sleigh_angle_v * 3.14 / 180);
+	sleigh_direction_y = -sin(sleigh_angle_v * 3.14 / 180);
 	sleigh_direction_z = cos(sleigh_angle_h * 3.14f / 180);
 
 	float new_x, new_y, new_z;
@@ -255,7 +260,7 @@ void timer(int value)
 	new_y = sleigh_y - sleigh_direction_y * sleigh_speed * delta_t;
 	new_z = sleigh_z - sleigh_direction_z * sleigh_speed * delta_t;
 
-	if(new_y < sleigh_height / 2)
+	if (new_y < sleigh_height / 2)
 		new_y = sleigh_height / 2;
 
 	collision = checkCollisions(new_x, new_y, new_z);
@@ -296,7 +301,7 @@ void timer(int value)
 			break;
 		}
 	}
-	
+
 	if (!collision) {
 		sleigh_x = new_x;
 		sleigh_y = new_y;
@@ -315,6 +320,8 @@ void timer(int value)
 		cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
+
+
 
 	score++;
 	glutTimerFunc(1/delta_t, timer, 0);
@@ -385,10 +392,10 @@ void setSpotLights() {
 
 	float spot0_x = sin((sleigh_angle_h + 25.0) * 3.14f / 180 );
 	float spot_y = -sin(sleigh_angle_v * 3.14 / 180);
-	float spot0_z = cos((sleigh_angle_h + 50.0) * 3.14f / 180 + 3.14 / 180);
+	float spot0_z = cos((sleigh_angle_h + 150.0) * 3.14f / 180);
 
-	float spot1_x = sin((sleigh_angle_h - 25.0) * 3.14f / 180 - 3.14f / 180);
-	float spot1_z = cos((sleigh_angle_h - 50.0) * 3.14f / 180 - 3.14 / 180);
+	float spot1_x = sin((sleigh_angle_h - 25.0) * 3.14f / 180);
+	float spot1_z = cos((sleigh_angle_h - 150.0) * 3.14f / 180);
 
 	spotlight[0] = Light(sleigh_x + spot0_x, sleigh_y + spot_y, sleigh_z + spot0_z, 1.0f);
 	spotlight[1] = Light(sleigh_x + spot1_x, sleigh_y + spot_y, sleigh_z + spot1_z, 1.0f);
@@ -1029,9 +1036,9 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		break;
 
 	case 'p':
-		if (!paused) startTime = glutGet(GLUT_ELAPSED_TIME);
-		status = !status;
 		paused = !paused;
+		status = !status;
+		if (!paused) startTime = glutGet(GLUT_ELAPSED_TIME);
 		std::cout << "status " << status << std::endl;
 		break;
 
