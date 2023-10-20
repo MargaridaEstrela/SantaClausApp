@@ -284,13 +284,21 @@ bool checkCollisions(float x, float y, float z) {
 		}
 	}
 
+	//check collision with lamps
+	for (int i = 0; i < lamps.size(); ++i) {
+		if (lamps[i].getObstacleAABB().intersects(sleigh_aabb)) {
+			lamps[i].updateObstaclePosition(sleigh_aabb, sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
+			return true;
+		}
+	}
+
 	return false;
 }
 
 void refresh(int value)
 {
 	glutPostRedisplay();
-	glutTimerFunc(1000/60, refresh, 0);
+	glutTimerFunc(1000 / 60, refresh, 0);
 }
 
 void timer(int value)
@@ -371,7 +379,7 @@ void timer(int value)
 	}
 
 	score++;
-	glutTimerFunc(1/delta_t, timer, 0);
+	glutTimerFunc(1 / delta_t, timer, 0);
 }
 
 // ------------------------------------------------------------
@@ -399,17 +407,18 @@ void changeSize(int w, int h) {
 //
 
 void setPointLights() {
-	pointLight[0] = Light(20.0f, 4.25f, -40.0f, 1.0f);
-	pointLight[1] = Light(20.0f, 4.25f, -30.0f, 1.0f);
-	pointLight[2] = Light(20.0f, 4.25f, -20.0f, 1.0f);
-	pointLight[3] = Light(20.0f, 4.25f, -10.0f, 1.0f);
-	pointLight[4] = Light(20.0f, 4.25f, 0.0f, 1.0f);
-	pointLight[5] = Light(20.0f, 4.25f, 10.0f, 1.0f);
+
+	pointLight[0] = Light(lamps[0].pos[0], 4.25f, lamps[0].pos[1], 1.0f);
+	pointLight[1] = Light(lamps[1].pos[0], 4.25f, lamps[1].pos[1], 1.0f);
+	pointLight[2] = Light(lamps[2].pos[0], 4.25f, lamps[2].pos[1], 1.0f);
+	pointLight[3] = Light(lamps[3].pos[0], 4.25f, lamps[3].pos[1], 1.0f);
+	pointLight[4] = Light(lamps[4].pos[0], 4.25f, lamps[4].pos[1], 1.0f);
+	pointLight[5] = Light(lamps[5].pos[0], 4.25f, lamps[5].pos[1], 1.0f);
 }
 
 void setSpotLights() {
 
-	float spot0_x = sin((sleigh_angle_h + 25.0) * 3.14f / 180 );
+	float spot0_x = sin((sleigh_angle_h + 25.0) * 3.14f / 180);
 	float spot_y = -sin(sleigh_angle_v * 3.14 / 180);
 	float spot0_z = cos((sleigh_angle_h + 150.0) * 3.14f / 180);
 
@@ -503,8 +512,9 @@ void renderHouses(void) {
 			float* pos = houses[i].getObstaclePosition();
 			translate(MODEL, pos[0], 0.0f, pos[1]);
 			scale(MODEL, 3.0f, 3.0f, 3.0f);
-		} else {
-			float* pos = houses[i-4].getObstaclePosition();
+		}
+		else {
+			float* pos = houses[i - 4].getObstaclePosition();
 			translate(MODEL, pos[0] + 1.5f, 3.0f, pos[1] - 0.2 * -8.0f);
 			rotate(MODEL, -45.0f, 0.0f, 1.0f, 0.0f);
 		}
@@ -659,7 +669,7 @@ void renderSnowballs(void) {
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, snowballMeshes[i].mat.shininess);
 		pushMatrix(MODEL);
-		
+
 		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
 		rotate(MODEL, atan2(snowballs[i].direction[1], snowballs[i].direction[0]) * 180.0f / 3.14f, 0.0f, 1.0f, 0.0f);
 
@@ -699,7 +709,7 @@ void renderPawns(void) {
 		glUniform1f(loc, pawnsMeshes[i].mat.shininess);
 		pushMatrix(MODEL);
 
-		translate(MODEL, 20.0f, 0.0f, -10.0f*(i-1));
+		translate(MODEL, 20.0f, 0.0f, -10.0f * (i - 1));
 
 		// send matrices to OGL
 		computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -727,7 +737,7 @@ void renderLamps(void) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	for (int i = 0; i < lamps_num*2; ++i) {
+	for (int i = 0; i < lamps_num * 2; ++i) {
 
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, lampsMeshes[i].mat.ambient);
@@ -746,7 +756,7 @@ void renderLamps(void) {
 		}
 		else {
 			float* pos = lamps[i - lamps_num].getObstaclePosition();
-			translate(MODEL, pos[0], 2.25f, pos[1]); 
+			translate(MODEL, pos[0], 2.25f, pos[1]);
 		}
 
 		// send matrices to OGL
@@ -820,7 +830,7 @@ void renderScene(void) {
 		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   // position definided em World Coord so is converted to eye space
 		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
 	}
-	
+
 	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
 	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
 	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
@@ -836,6 +846,9 @@ void renderScene(void) {
 		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
 		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
 	}
+
+	// Set pointLights
+	setPointLights();
 
 	multMatrixPoint(VIEW, spotDir, res);
 
@@ -936,7 +949,7 @@ void renderScene(void) {
 void processKeys(void)
 {
 	if (collision && keyStates['o']) keyStates['o'] = !keyStates['o'];
-	
+
 	if (keyStates['o']) {											// key 'o' pressed
 		sleigh_speed += delta_s;
 
@@ -1213,7 +1226,7 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	
+
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
@@ -1284,7 +1297,6 @@ void init()
 
 	// Initialize lights
 	directionalLight = Light(0.0f, 5.0f, 10.0f, 0.0f);
-	setPointLights();
 
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
@@ -1308,7 +1320,7 @@ void init()
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
-	
+
 	glGenTextures(6, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
@@ -1327,7 +1339,7 @@ void init()
 	//
 	// TERRAIN
 	//
-	 
+
 	//create geometry and VAO of the terrain
 	terrainMesh = createQuad(100.0f, 100.0f);
 	memcpy(terrainMesh.mat.ambient, amb, 4 * sizeof(float));
@@ -1475,7 +1487,7 @@ void init()
 	}
 
 	for (int i = 0; i < lamps_num; i++) {
-		Obstacle lamp = Obstacle(20.0f, 10.0f - i*10.0f, lamp_width, lamp_height, lamp_width);
+		Obstacle lamp = Obstacle(20.0f, 10.0f - i * 10.0f, lamp_width, lamp_height, lamp_width);
 		lamps.push_back(lamp);
 	}
 
