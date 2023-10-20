@@ -108,7 +108,6 @@ void main() {
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from lightwood.tga
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
-			colorOut[3] = 0.7;
 		}
 		else if (texMode == 3) // snowballs
 		{
