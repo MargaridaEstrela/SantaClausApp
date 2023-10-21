@@ -833,15 +833,16 @@ void renderLamps(void) {
 	glDisable(GL_BLEND);
 }
 
-void renderScene(void) {
+void renderRearView(void) {
 
-	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
 
 	createStencil(WinX, WinY, 0x0);
+
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
 	// load identity matrices
 	loadIdentity(VIEW);
@@ -851,12 +852,127 @@ void renderScene(void) {
 	pushMatrix(PROJECTION);
 	loadIdentity(PROJECTION);
 
-	// stencil
-	//rear_view = !rear_view;
-	
-	
-	if (activeCam == 2) {					// follow camera
+	// cameras
+	float ratio = (1.0f * WinX) / WinY;
+
+	// set additional camera 3 - rear view
+	float cam_x = -sleigh_direction_x * camera_dist;
+	float cam_y = (-sleigh_direction_y * camera_dist) + camera_height;
+	float cam_z = -sleigh_direction_z * camera_dist;
+
+	float pos[3] = { cam_x, cam_y, cam_z };
+	float target[3] = { sleigh_x, sleigh_y, sleigh_z };
+
+	perspective(53.13f, ratio, 0.1f, 1000.0f);
+	lookAt(pos[0], pos[1], pos[2], target[0], target[1], target[2], 0, 1, 0);
+
+	// use our shader
+	glUseProgram(shader.getProgramIndex());
+	glUniform1i(fogOnId, fog);
+	glUniform1i(directionalLightOnId, directionalLightOn);
+	glUniform1i(pointLightsOnId, pointLightsOn);
+	glUniform1i(spotLightsOnId, spotLightsOn);
+
+	// Set pointLights
+	float res[4];
+	for (int i = 0; i < n_pointLights; i++) {
+		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);
+		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
+	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
+	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
+	glUniform4fv(pointLight4_uniformId, 1, pointLight[3].getEye());
+	glUniform4fv(pointLight5_uniformId, 1, pointLight[4].getEye());
+	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
+
+	// Set spotlights
+	float model[4];
+	setSpotLights();
+	for (int i = 0; i < n_spotlights; i++) {
+		multMatrixPoint(MODEL, spotlight[i].getPosition(), model);
+		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
+		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	// Set pointLights
+	setPointLights();
+
+	multMatrixPoint(VIEW, spotDir, res);
+
+	glUniform4fv(spotLightL_uniformId, 1, spotlight[0].getEye());
+	glUniform4fv(spotLightR_uniformId, 1, spotlight[1].getEye());
+	glUniform4fv(spotDir_uniformId, 1, res);
+
+	// Set global light
+	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
+	glUniform4fv(directional_uniformId, 1, res);
+
+	// Associate Texture Units to Texture Objects
+	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, leaf.jpeg in TU3
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
+
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[3]);
+
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[4]);
+
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[6]);
+
+	glUniform1i(tex_loc, 0);
+	glUniform1i(tex_loc1, 1);
+	glUniform1i(tex_loc2, 2);
+	glUniform1i(tex_loc3, 3);
+	glUniform1i(tex_loc4, 4);
+	glUniform1i(tex_loc5, 5);
+	glUniform1i(tex_cube_loc, 6);
+
+	glStencilFunc(GL_EQUAL, 0x0, 0x1);
+
+	// Render objects
+	renderTerrain();
+	renderHouses();
+	renderTrees();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+
+	//viewer at origin looking down at  negative z direction
+	pushMatrix(MODEL);
+	loadIdentity(MODEL);
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+	pushMatrix(VIEW);
+
+	popMatrix(PROJECTION);
+	popMatrix(VIEW);
+	popMatrix(MODEL);
+}
+
+void renderScene(void) {
+
+	FrameCount++;
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	pushMatrix(VIEW);
+	pushMatrix(MODEL);
+
+	if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
+		renderRearView();
 	}
 	else {
 		glDisable(GL_STENCIL_TEST);
@@ -864,24 +980,18 @@ void renderScene(void) {
 
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
+	// load identity matrices
+	loadIdentity(VIEW);
+	loadIdentity(MODEL);
+
+	// apply the appropriate camera projection
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+
 	// cameras
 	float ratio = (1.0f * WinX) / WinY;
 
-	if (rear_view && activeCam == 2) {
-		// set additional camera 3
-		float cam_x = -sleigh_direction_x * camera_dist;
-		float cam_y = (-sleigh_direction_y * camera_dist) + camera_height;
-		float cam_z = -sleigh_direction_z * camera_dist;
-
-		float pos[3] = { cam_x, cam_y, cam_z };
-		float target[3] = { sleigh_x, sleigh_y, -sleigh_z };
-
-		perspective(53.13f, ratio, 0.1f, 1000.0f);
-
-		lookAt(pos[0], pos[1], pos[2], target[0], target[1], target[2], 0, 1, 0);
-		glStencilFunc(GL_NOTEQUAL, 0x1, 0x1);
-	}
-
+	// Cameras
 	if (cams[activeCam].getCameraType() == 1) {
 		// top ortho
 		ortho(-18.0f * ratio, 18.0f * ratio, -18.0f * ratio, 18.0f * ratio, -1, 1000);
@@ -894,16 +1004,6 @@ void renderScene(void) {
 	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
 		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
 		0, 1, 0);
-
-	if (activeCam == 2) {		// follow camera
-		glStencilFunc(GL_NOTEQUAL, 0x0, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-	}
-	else {
-		glStencilFunc(GL_ALWAYS, 0x0, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-	}
-
 
 
 	// use our shader
@@ -980,6 +1080,8 @@ void renderScene(void) {
 	glUniform1i(tex_loc5, 5);
 	glUniform1i(tex_cube_loc, 6);
 
+	glStencilFunc(GL_EQUAL, 0x1, 0x1);
+
 	// Render objects
 	renderTerrain();
 	renderHouses();
@@ -987,8 +1089,6 @@ void renderScene(void) {
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
-
-	glClear(GL_STENCIL_BUFFER_BIT);
 
 	/* 
 	// TEXT
