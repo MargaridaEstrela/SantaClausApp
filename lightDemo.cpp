@@ -76,6 +76,7 @@ vector<struct MyMesh> pawnsMeshes;
 vector<struct MyMesh> lampsMeshes;
 MyMesh terrainMesh;
 vector<struct MyMesh> snowballMeshes;
+MyMesh stencilMesh;
 vector<struct Snowball> snowballs;
 
 //External array storage defined in AVTmathLib.cpp
@@ -96,9 +97,9 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_cube_loc;
 GLint texMode_uniformId;
-GLuint TextureArray[6];
+GLuint TextureArray[7];
 
 // Snowballs
 int snowball_num = 50;
@@ -113,6 +114,7 @@ Camera cams[3];
 float camera_dist = 5.0f, camera_height = 2.0f;
 float camX, camY, camZ;
 int activeCam = 0;
+bool rear_view = false;
 
 // Mouse Tracking Variables
 int startX, startY, tracking = 0;
@@ -397,6 +399,10 @@ void changeSize(int w, int h) {
 	glViewport(0, 0, w, h);
 	// set the projection matrix
 	ratio = (1.0f * w) / h;
+
+	WinX = w;
+	WinY = h;
+
 	loadIdentity(PROJECTION);
 	perspective(53.13f, ratio, 0.1f, 1000.0f);
 }
@@ -420,10 +426,10 @@ void setSpotLights() {
 
 	float spot0_x = sin((sleigh_angle_h + 25.0) * 3.14f / 180);
 	float spot_y = -sin(sleigh_angle_v * 3.14 / 180);
-	float spot0_z = cos((sleigh_angle_h + 150.0) * 3.14f / 180);
+	float spot0_z = cos((sleigh_angle_h + 900.0) * 3.14f / 180);
 
 	float spot1_x = sin((sleigh_angle_h - 25.0) * 3.14f / 180);
-	float spot1_z = cos((sleigh_angle_h - 150.0) * 3.14f / 180);
+	float spot1_z = cos((sleigh_angle_h - 900.0) * 3.14f / 180);
 
 	spotlight[0] = Light(sleigh_x + spot0_x, sleigh_y + spot_y, sleigh_z + spot0_z, 1.0f);
 	spotlight[1] = Light(sleigh_x + spot1_x, sleigh_y + spot_y, sleigh_z + spot1_z, 1.0f);
@@ -448,6 +454,50 @@ void changeSpotlightsMode() {
 	for (int i = 0; i < n_spotlights; i++) {
 		spotlight[i].changeMode();
 	}
+}
+
+// ------------------------------------------------------------
+//
+// Stencil stuff
+//
+
+void createStencil(int h, int w, GLint ref) {
+	/* create a diamond shaped stencil area */
+	loadIdentity(PROJECTION);
+	if (w <= h)
+		ortho(-2.0, 2.0, -2.0 * (GLfloat)h / (GLfloat)w,
+			2.0 * (GLfloat)h / (GLfloat)w, -10, 10);
+	else
+		ortho(-2.0 * (GLfloat)w / (GLfloat)h,
+			2.0 * (GLfloat)w / (GLfloat)h, -2.0, 2.0, -10, 10);
+
+	// load identity matrices for Model-View
+	loadIdentity(VIEW);
+	loadIdentity(MODEL);
+
+	glUseProgram(shader.getProgramIndex());
+
+	//nao vai ser preciso enviar o material pois o cubo nao e desenhado
+
+	//rotate(MODEL, 45.0f, 0.0, 0.0, 1.0);
+	translate(MODEL, -0.5f, -0.5f, -0.5f);
+	scale(MODEL, 1.0f, 1.f, 1.0f);
+
+	// send matrices to OGL
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	//glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+	glClear(GL_STENCIL_BUFFER_BIT);
+
+	glStencilFunc(GL_NEVER, 0x0, 0x1);
+	glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);
+
+	glBindVertexArray(stencilMesh.vao);
+	glDrawElements(stencilMesh.type, stencilMesh.numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
 }
 
 // ------------------------------------------------------------
@@ -801,7 +851,36 @@ void renderScene(void) {
 	pushMatrix(PROJECTION);
 	loadIdentity(PROJECTION);
 
+	// stencil
+	//rear_view = !rear_view;
+	createStencil(WinX, WinY, 0x0);
+	
+	if (activeCam == 2) {					// follow camera
+		glEnable(GL_STENCIL_TEST);
+	}
+	else {
+		glDisable(GL_STENCIL_TEST);
+	}
+
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	// cameras
 	float ratio = (1.0f * WinX) / WinY;
+
+	if (rear_view && activeCam == 2) {
+		// set additional camera 3
+		float cam_x = -sleigh_direction_x * camera_dist;
+		float cam_y = (-sleigh_direction_y * camera_dist) + camera_height;
+		float cam_z = -sleigh_direction_z * camera_dist;
+
+		float pos[3] = { cam_x, cam_y, cam_z };
+		float target[3] = { sleigh_x, sleigh_y, -sleigh_z };
+
+		perspective(53.13f, ratio, 0.1f, 1000.0f);
+
+		lookAt(pos[0], pos[1], pos[2], target[0], target[1], target[2], 0, 1, 0);
+		glStencilFunc(GL_NOTEQUAL, 0x1, 0x1);
+	}
 
 	if (cams[activeCam].getCameraType() == 1) {
 		// top ortho
@@ -812,10 +891,20 @@ void renderScene(void) {
 	}
 
 	// set the camera using a function similar to gluLookAt
-	//lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
 	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
 		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
 		0, 1, 0);
+
+	if (activeCam == 2) {		// follow camera
+		glStencilFunc(GL_NOTEQUAL, 0x0, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	}
+	else {
+		glStencilFunc(GL_ALWAYS, 0x0, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	}
+
+
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
@@ -880,12 +969,16 @@ void renderScene(void) {
 	glActiveTexture(GL_TEXTURE5);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[6]);
+
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
 	glUniform1i(tex_loc2, 2);
 	glUniform1i(tex_loc3, 3);
 	glUniform1i(tex_loc4, 4);
 	glUniform1i(tex_loc5, 5);
+	glUniform1i(tex_cube_loc, 6);
 
 	// Render objects
 	renderTerrain();
@@ -894,6 +987,12 @@ void renderScene(void) {
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
+
+	glClear(GL_STENCIL_BUFFER_BIT);
+
+	/* 
+	// TEXT
+	*/
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -913,8 +1012,6 @@ void renderScene(void) {
 	loadIdentity(VIEW);
 
 	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
-
-	//std::cout << "status " << status << std::endl;
 
 	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 85, WinY / 2, 1.0f, 1.0f, 1.0f, 1.0f);
 	else if (status == 2) {
@@ -1235,6 +1332,7 @@ GLuint setupShaders() {
 	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
 	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
+	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubemap");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
@@ -1321,7 +1419,7 @@ void init()
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
 
-	glGenTextures(6, TextureArray);
+	glGenTextures(7, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
@@ -1475,6 +1573,19 @@ void init()
 		lampsMeshes.push_back(amesh);
 	}
 
+	//
+	// CUBE
+	//
+	amesh = createCube();
+	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	stencilMesh = amesh;
+
+
 	// initialize obstacles
 	for (int i = 0; i < 4; i++) {
 		Obstacle house = Obstacle(0.0f, i * -8.0f, house_width, house_height, house_width);
@@ -1496,8 +1607,9 @@ void init()
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearStencil(1);
 }
 
 // ------------------------------------------------------------

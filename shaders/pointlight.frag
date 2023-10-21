@@ -6,6 +6,7 @@ uniform sampler2D texmap2;
 uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
+uniform samplerCube cubemap;
 
 uniform int texMode;
 
@@ -96,8 +97,9 @@ void main() {
 
 		if (texMode == 0) // modulate diffuse color with texel color
 		{
-			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
-			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
+			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
+			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		} 
 		else if (texMode == 1) // Roof
 		{
