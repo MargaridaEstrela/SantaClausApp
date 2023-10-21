@@ -141,7 +141,7 @@ float spotDir[4];
 
 // Sleigh
 float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
-float init_x = 10.0f, init_y = 5.0f, init_z = 10.0f;
+float init_x = 10.0f, init_y = 0.0f, init_z = 10.0f;
 float sleigh_x = init_x, sleigh_y = init_y, sleigh_z = init_z;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
 float sleigh_speed = 0.0f, max_speed = 10.0f;
@@ -835,7 +835,7 @@ void renderLamps(void) {
 
 void renderRearView(void) {
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
@@ -856,12 +856,20 @@ void renderRearView(void) {
 	float ratio = (1.0f * WinX) / WinY;
 
 	// set additional camera 3 - rear view
-	float cam_x = -sleigh_direction_x * camera_dist;
-	float cam_y = (-sleigh_direction_y * camera_dist) + camera_height;
-	float cam_z = -sleigh_direction_z * camera_dist;
+	float cam_x = sleigh_x;
+	float cam_y = sleigh_y + 1.0f;
+	float cam_z = sleigh_z;
 
+	std::cout << "CAM: x: " << cam_x << " && y: " << cam_y << " && z: " << cam_z << std::endl;
+
+	float target_x = sleigh_x + sleigh_direction_x * 2;
+	float target_y = sleigh_y + sleigh_direction_y * 2;
+	float target_z = sleigh_z + sleigh_direction_z * 2;
+	std::cout << std::endl;
+	std::cout << "TARGET: x: " << target_x << " && y: " << target_y << " && z: " << target_z << std::endl;
+	
 	float pos[3] = { cam_x, cam_y, cam_z };
-	float target[3] = { sleigh_x, sleigh_y, sleigh_z };
+	float target[3] = { target_x, target_y, target_z };
 
 	perspective(53.13f, ratio, 0.1f, 1000.0f);
 	lookAt(pos[0], pos[1], pos[2], target[0], target[1], target[2], 0, 1, 0);
