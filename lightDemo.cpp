@@ -478,9 +478,7 @@ void createStencil(int h, int w, GLint ref) {
 	glUseProgram(shader.getProgramIndex());
 
 	//nao vai ser preciso enviar o material pois o cubo nao e desenhado
-
-	//rotate(MODEL, 45.0f, 0.0, 0.0, 1.0);
-	translate(MODEL, -0.5f, -0.5f, -0.5f);
+	translate(MODEL, -0.5f, 2.8f, -0.5f);
 	scale(MODEL, 1.0f, 1.f, 1.0f);
 
 	// send matrices to OGL
@@ -843,6 +841,8 @@ void renderScene(void) {
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
 
+	createStencil(WinX, WinY, 0x0);
+
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
@@ -853,7 +853,7 @@ void renderScene(void) {
 
 	// stencil
 	//rear_view = !rear_view;
-	createStencil(WinX, WinY, 0x0);
+	
 	
 	if (activeCam == 2) {					// follow camera
 		glEnable(GL_STENCIL_TEST);
