@@ -1648,12 +1648,12 @@ void init()
 	camY = r * sin(beta * 3.14f / 180.0f);
 
 	// set additional camera 1
-	cams[0].setCameraPosition(camX, 60.0f, camZ); // top perspective
-	cams[0].setCameraTarget(0.0f, 0.0f, -10.0f);
+	cams[0].setCameraPosition(0.0f, 45.0f, 0.0f); // top perspective
+	cams[0].setCameraTarget(0.0f, 0.0f, -7.0f);
 	cams[0].setCameraType(0);
 
 	// set additional camera 2
-	cams[1].setCameraPosition(0.1f, 100.0f, 0.0f); // top ortho
+	cams[1].setCameraPosition(0.0f, 100.0f, 0.0f); // top ortho
 	cams[1].setCameraTarget(0.0f, 0.0f, -10.0f);
 	cams[1].setCameraType(1);
 
