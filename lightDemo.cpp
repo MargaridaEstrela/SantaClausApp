@@ -1255,9 +1255,9 @@ void renderScene(void) {
 
 	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 85, WinY / 2, 1.0f, 1.0f, 1.0f, 1.0f);
 	else if (status == 2) {
-		RenderText(shaderText, "Game Over", WinX / 2 - 125, WinY / 2, 1.0f, 1.0f, 0.0f, 0.0f);
+		RenderText(shaderText, "Game Over", WinX / 2 - 115, WinY / 2 + 25, 1.0f, 1.0f, 0.0f, 0.0f);
 		string finalScore = "Final Score: " + to_string(final_score);
-		RenderText(shaderText, finalScore, WinX / 2 - 85, WinY / 2 - 50, 0.5f, 1.0f, 1.0f, 1.0f);
+		RenderText(shaderText, finalScore, WinX / 2 - 90, WinY / 2 - 25, 0.5f, 1.0f, 1.0f, 1.0f);
 		RenderText(shaderText, "Press [R] to restart", WinX / 2 - 85, 50, 0.4f, 1.0f, 1.0f, 1.0f);
 	}
 
