@@ -14,6 +14,7 @@
 #include <math.h>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <string>
 
 // include GLEW to access OpenGL 3.3 functions
@@ -25,6 +26,9 @@
 
 #include <IL/il.h>
 
+// assimp include files. These three are usually needed.
+#include "assimp/Importer.hpp"	//OO version Header!
+#include "assimp/scene.h"
 
 // Use Very Simple Libs
 #include "VSShaderlib.h"
@@ -40,10 +44,19 @@
 #include "snowball.h"
 #include "obstacle.h"
 #include "AABB.h"
+#include "meshFromAssimp.h"
 
 using namespace std;
 
 #define CAPTION "SantaClaus App"
+// Created an instance of the Importer class in the meshFromAssimp.cpp file
+extern Assimp::Importer importer;
+// the global Assimp scene object
+extern const aiScene* scene;
+char model_dir[50];  //initialized by the user input at the console
+// scale factor for the Assimp model to fit in the window
+extern float scaleFactor;
+
 int WindowHandle = 0;
 int WinX = 1024, WinY = 768;
 
@@ -63,6 +76,8 @@ int status = 0;				// 0:run; 1:paused; 2:game over
 //shaders
 VSShaderLib shader;			//geometry
 VSShaderLib shaderText;		//render bitmap text
+
+bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
@@ -99,6 +114,10 @@ GLint spotDir_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5;
 GLint texMode_uniformId;
 GLuint TextureArray[6];
+
+GLint normalMap_loc;
+GLint specularMap_loc;
+GLint diffMapCount_loc;
 
 // Snowballs
 int snowball_num = 50;
@@ -454,6 +473,110 @@ void changeSpotlightsMode() {
 //
 // Render stufff
 //
+
+// Recursive render of the Assimp Scene Graph
+
+void aiRecursive_render(const aiScene* sc, const aiNode* nd)
+{
+	GLint loc;
+
+	// Get node transformation matrix
+	aiMatrix4x4 m = nd->mTransformation;
+	// OpenGL matrices are column major
+	m.Transpose();
+
+	// save model matrix and apply node transformation
+	pushMatrix(MODEL);
+
+	float aux[16];
+	memcpy(aux, &m, sizeof(float) * 16);
+	multMatrix(MODEL, aux);
+
+
+	// draw all meshes assigned to this node
+	for (unsigned int n = 0; n < nd->mNumMeshes; ++n) {
+
+
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.emissive");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.emissive);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, myMeshes[nd->mMeshes[n]].mat.shininess);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.texCount");
+		glUniform1i(loc, myMeshes[nd->mMeshes[n]].mat.texCount);
+
+		unsigned int  diffMapCount = 0;  //read 2 diffuse textures
+
+		//devido ao fragment shader suporta 2 texturas difusas simultaneas, 1 especular e 1 normal map
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
+		if (myMeshes[nd->mMeshes[n]].mat.texCount != 0)
+			for (unsigned int i = 0; i < myMeshes[nd->mMeshes[n]].mat.texCount; ++i) {
+				if (myMeshes[nd->mMeshes[n]].texTypes[i] == DIFFUSE) {
+					if (diffMapCount == 0) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else if (diffMapCount == 1) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else printf("Only supports a Material with a maximum of 2 diffuse textures\n");
+				}
+				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == SPECULAR) {
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+					glUniform1i(specularMap_loc, true);
+				}
+				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == NORMALS) { //Normal map
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+					if (normalMapKey)
+						glUniform1i(normalMap_loc, normalMapKey);
+					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+
+				}
+				else printf("Texture Map not supported\n");
+			}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// bind VAO
+		glBindVertexArray(myMeshes[nd->mMeshes[n]].vao);
+
+		if (!shader.isProgramValid()) {
+			printf("Program Not Valid!\n");
+			exit(1);
+		}
+		// draw
+		glDrawElements(myMeshes[nd->mMeshes[n]].type, myMeshes[nd->mMeshes[n]].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+
+	// draw all children
+	for (unsigned int n = 0; n < nd->mNumChildren; ++n) {
+		aiRecursive_render(sc, nd->mChildren[n]);
+	}
+	popMatrix(MODEL);
+}
+
 
 void renderTerrain(void) {
 	GLint loc;
@@ -894,6 +1017,7 @@ void renderScene(void) {
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
+	aiRecursive_render(scene, scene->mRootNode);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -1214,6 +1338,8 @@ GLuint setupShaders() {
 	glBindAttribLocation(shader.getProgramIndex(), VERTEX_COORD_ATTRIB, "position");
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
 	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
+	glBindAttribLocation(shader.getProgramIndex(), TANGENT_ATTRIB, "tangent");
+	glBindAttribLocation(shader.getProgramIndex(), BITANGENT_ATTRIB, "bitangent");
 
 	glLinkProgram(shader.getProgramIndex());
 	printf("InfoLog for Model Rendering Shader\n%s\n\n", shaderText.getAllInfoLogs().c_str());
@@ -1226,6 +1352,9 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
+	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
+	specularMap_loc = glGetUniformLocation(shader.getProgramIndex(), "specularMap");
+	diffMapCount_loc = glGetUniformLocation(shader.getProgramIndex(), "diffMapCount");
 
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
@@ -1335,6 +1464,35 @@ void init()
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
+
+	std::string filepath;
+
+	while (true) {
+		cout << "Input the directory name containing the OBJ file: ";
+		cin >> model_dir;
+
+		std::ostringstream oss;
+		oss << model_dir << "/" << model_dir << ".obj";
+		filepath = oss.str();   //path of OBJ file in the VS project
+
+		strcat(model_dir, "/");  //directory path in the VS project
+
+		//check if file exists
+		ifstream fin(filepath.c_str());
+		if (!fin.fail()) {
+			fin.close();
+			break;
+		}
+		else
+			printf("Couldn't open file: %s\n", filepath.c_str());
+	}
+
+	//import 3D file into Assimp scene graph
+	Import3DFromFile(filepath);
+	
+
+	//creation of Mymesh array with VAO Geometry and Material
+	myMeshes = createMeshFromAssimp(scene);
 
 	//
 	// TERRAIN
