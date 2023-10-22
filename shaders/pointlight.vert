@@ -21,6 +21,7 @@ uniform vec4 spotLightR;
 in vec4 position;
 in vec4 normal, tangent, bitangent;		//por causa do gerador de geometria
 in vec4 texCoord;
+in vec3 tangent, bitangent;
 
 out Data {
 	vec3 normal;
@@ -34,7 +35,18 @@ void main () {
 	vec3 lightDir[9], eyeDir;
 	vec3 aux;
 
+	vec3 n, t, b;
 	vec4 pos = m_viewModel * position;
+	vec3 lDir, eyeDir;
+	vec3 aux;
+
+	n = normalize(m_normal * normal.xyz);
+	eyeDir =  vec3(-pos);
+	lDir = vec3(directionalLight);
+
+	if(normalMap)  {  //transform eye and light vectors by tangent basis
+		t = normalize(m_normal * tangent.xyz);
+		b = normalize(m_normal * bitangent.xyz);
 
 	n = normalize(m_normal * normal.xyz);
 	eyeDir =  vec3(-pos);
@@ -70,7 +82,7 @@ void main () {
 
 	}
 
-	DataOut.lightDir[0] = vec3(directionalLight);
+	DataOut.lightDir[0] = lDir;
 	DataOut.lightDir[1] = vec3(pointLight1 - pos);
 	DataOut.lightDir[2] = vec3(pointLight2 - pos);
 	DataOut.lightDir[3] = vec3(pointLight3 - pos);

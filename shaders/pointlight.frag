@@ -12,6 +12,11 @@ uniform	sampler2D texUnitDiff1;
 uniform	sampler2D texUnitSpec;
 uniform	sampler2D texUnitNormalMap;
 
+uniform	sampler2D texUnitDiff;
+uniform	sampler2D texUnitDiff1;
+uniform	sampler2D texUnitSpec;
+uniform	sampler2D texUnitNormalMap;
+
 uniform int texMode;
 
 out vec4 colorOut;
@@ -59,6 +64,8 @@ in Data {
 	vec3 lightDir[9];
 	vec2 tex_coord;
 } DataIn;
+
+vec4 diff, auxSpec;
 
 void main() {
 	if(shadowMode && !fog) {
@@ -111,6 +118,24 @@ void main() {
 					spec = mat.specular * pow(intSpec, mat.shininess) * attenuation;
 				}
 			}
+		}
+
+		if (mat.texCount == 0) {
+			diff = mat.diffuse;
+			spec = mat.specular;
+		}
+		else {
+			if(diffMapCount == 0)
+				diff = mat.diffuse;
+			else if(diffMapCount == 1)
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord);
+			else
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord) * texture(texUnitDiff1, DataIn.tex_coord);
+
+		if(specularMap) 
+			auxSpec = mat.specular * texture(texUnitSpec, DataIn.tex_coord);
+		else
+			auxSpec = mat.specular;
 		}
 
 		if (i == 0) intensity *= 0.5;				// directional light
