@@ -562,8 +562,6 @@ void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly
 	glUniform1i(texMode_uniformId, 8); // draw modulated textured particles 
 	glUniform1i(tex_loc, 0);  //use TU 0
 
-	std::cout << flare->nPieces << std::endl;
-
 	for (i = 0; i < flare->nPieces; ++i)
 	{
 		
@@ -967,13 +965,9 @@ void renderRearView(void) {
 	float cam_y = sleigh_y + 1.0f;
 	float cam_z = sleigh_z;
 
-	std::cout << "CAM: x: " << cam_x << " && y: " << cam_y << " && z: " << cam_z << std::endl;
-
 	float target_x = sleigh_x + sleigh_direction_x * 2;
 	float target_y = sleigh_y + sleigh_direction_y * 2;
 	float target_z = sleigh_z + sleigh_direction_z * 2;
-	std::cout << std::endl;
-	std::cout << "TARGET: x: " << target_x << " && y: " << target_y << " && z: " << target_z << std::endl;
 	
 	float pos[3] = { cam_x, cam_y, cam_z };
 	float target[3] = { target_x, target_y, target_z };
