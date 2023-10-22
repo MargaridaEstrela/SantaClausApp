@@ -173,7 +173,7 @@ AABB sleigh_aabb = AABB();
 // Obstacles
 float house_height = 4.0f, house_width = 6.0f;
 vector<struct Obstacle> houses;
-float tree_height = 3.0f, tree_width = 1.8f;
+float tree_height = 4.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
 float lamp_height = 4.5f, lamp_width = 0.5f;
 vector<struct Obstacle> lamps;
@@ -983,6 +983,7 @@ void renderScene(void) {
 	// Render objects
 	renderTerrain();
 	renderHouses();
+	//renderTrees();
 	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
@@ -1508,7 +1509,6 @@ void init()
 	//
 	// TREES
 	//
-
 	float tree_spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 	float tree_shininess = 10.0f;
 
@@ -1518,7 +1518,6 @@ void init()
 	amesh.mat.shininess = tree_shininess;
 	amesh.mat.texCount = texcount;
 	treesMeshes.push_back(amesh);
-
 	//
 	// SNOWBALL
 	//
