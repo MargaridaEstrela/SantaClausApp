@@ -1,4 +1,4 @@
-#version 410
+#version 430
 
 uniform sampler2D texmap;
 uniform sampler2D texmap1;
@@ -6,10 +6,18 @@ uniform sampler2D texmap2;
 uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
+uniform samplerCube cubeMap;
+uniform	sampler2D texUnitDiff;
+uniform	sampler2D texUnitDiff1;
+uniform	sampler2D texUnitSpec;
+uniform	sampler2D texUnitNormalMap;
 
 uniform int texMode;
 
 out vec4 colorOut;
+
+uniform mat4 m_View;
+uniform int reflect_perFrag; //reflect vector calculated in the frag shader
 
 struct Materials {
 	vec4 diffuse;
@@ -22,19 +30,28 @@ struct Materials {
 
 uniform Materials mat;
 
+uniform bool fog;
+uniform bool directionalLightOn;
+uniform bool pointLightsOn;
+uniform bool spotLightsOn;
+uniform bool shadowMode;
+
+uniform bool normalMap;  //for normal mapping
+uniform bool specularMap;
+uniform uint diffMapCount;
+
 uniform vec4 spotDir;
 const float spotCosCutOff = 0.93;
 const float spotExp = 40.0f;
 
 const float linear = 0.1;
 const float expo = 0.1;
+
 const float density = 0.1;
 const float gradient = 1.0;
 
-uniform bool fog;
-uniform bool directionalLightOn;
-uniform bool pointLightsOn;
-uniform bool spotLightsOn;
+const vec4 shadowC = vec4(.6, .6, .6, 1);
+const float reflect_factor = 0.9;
 
 in Data {
 	vec3 normal;
@@ -44,16 +61,24 @@ in Data {
 } DataIn;
 
 void main() {
-
-	vec4 texel, texel1;
+	if(shadowMode && !fog) {
+		colorOut = shadowC;
+		return;
+	}
 
 	colorOut = vec4(0);
 
 	if (!directionalLightOn && !pointLightsOn && !spotLightsOn) return;
 
 	vec4 spec = vec4(0.0);
+	vec4 texel, texel1, cube_texel;
 
 	vec3 n = normalize(DataIn.normal);
+	if(normalMap)
+		n = normalize(2.0 * texture(texUnitNormalMap, DataIn.tex_coord).rgb - 1.0);  //normal in tangent space
+	else
+		n = normalize(DataIn.normal);
+
 	vec3 e = normalize(DataIn.eye);
 
 	for (int i = 0; i <9; i++) {
@@ -94,7 +119,33 @@ void main() {
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 
-		if (texMode == 0) // modulate diffuse color with texel color
+		if(mat.texCount != 0)
+		{
+			vec4 diff, auxSpec;
+
+			if(diffMapCount == 0)
+				diff = mat.diffuse;
+			else if(diffMapCount == 1)
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord);
+			else
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord) * texture(texUnitDiff1, DataIn.tex_coord);
+
+			if(specularMap) 
+				auxSpec = mat.specular * texture(texUnitSpec, DataIn.tex_coord);
+			else
+				auxSpec = mat.specular;
+
+			if (intensity > 0.0) {
+				vec3 h = normalize(l + e);
+				float intSpec = max(dot(h,n), 0.0);
+				spec = auxSpec * pow(intSpec, mat.shininess);
+				
+			}
+
+			colorOut = vec4((max(intensity * diff, diff*0.15) + spec).rgb, 1.0);
+			return;
+		}
+		else if (texMode == 0) // modulate diffuse color with texel color
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
@@ -116,9 +167,11 @@ void main() {
 		}
 		else if (texMode == 4) // trees
 		{
-			texel = texture(texmap3, DataIn.tex_coord);  // texel from leaf.jpeg
-			colorOut += min(intensity*texel + spec, 0.07*texel);
-			colorOut[3] = 0.8; 
+			texel = texture(texmap3, DataIn.tex_coord);  
+		
+			if(texel.a == 0.0) discard;
+			else
+				colorOut = texel;
 		}
 		else if (texMode == 5) // lamps glass
 		{

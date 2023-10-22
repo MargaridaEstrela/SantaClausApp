@@ -1,8 +1,10 @@
-#version 410
+#version 430
 
 uniform mat4 m_pvm;
 uniform mat4 m_viewModel;
 uniform mat3 m_normal;
+
+uniform bool normalMap;
 
 uniform vec4 directionalLight;
 
@@ -17,7 +19,7 @@ uniform vec4 spotLightL;
 uniform vec4 spotLightR;
 
 in vec4 position;
-in vec4 normal;		//por causa do gerador de geometria
+in vec4 normal, tangent, bitangent;		//por causa do gerador de geometria
 in vec4 texCoord;
 
 out Data {
@@ -28,11 +30,45 @@ out Data {
 } DataOut;
 
 void main () {
+	vec3 n, t, b;
+	vec3 lightDir[9], eyeDir;
+	vec3 aux;
 
 	vec4 pos = m_viewModel * position;
 
-	DataOut.normal = normalize(m_normal * normal.xyz);
-	DataOut.eye = vec3(-pos);
+	n = normalize(m_normal * normal.xyz);
+	eyeDir =  vec3(-pos);
+
+	// Bump Mapping
+	if(normalMap)  {  //convert eye and light vectors to tangent space
+
+		//Calculate components of TBN basis in eye space
+		t = normalize(m_normal * tangent.xyz);  
+		b = tangent.w * cross(n,t);
+
+		aux.x = dot(lightDir[0], t);
+		aux.y = dot(lightDir[0], b);
+		aux.z = dot(lightDir[0], n);
+		lightDir[0] = normalize(aux);
+
+		aux.x = dot(eyeDir, t);
+		aux.y = dot(eyeDir, b);
+		aux.z = dot(eyeDir, n);
+		eyeDir = normalize(aux);
+
+		DataOut.normal = n;
+		DataOut.lightDir[0] = lightDir[0];
+		DataOut.eye = eyeDir;
+
+	}
+
+	else{
+
+		DataOut.normal = normalize(m_normal * normal.xyz);
+		DataOut.eye = vec3(-pos);
+		DataOut.lightDir[0] = vec3(directionalLight);
+
+	}
 
 	DataOut.lightDir[0] = vec3(directionalLight);
 	DataOut.lightDir[1] = vec3(pointLight1 - pos);

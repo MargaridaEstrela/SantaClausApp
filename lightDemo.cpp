@@ -45,6 +45,7 @@
 #include "obstacle.h"
 #include "AABB.h"
 #include "meshFromAssimp.h"
+#include "l3dBillboard.h"
 
 using namespace std;
 
@@ -111,13 +112,16 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_cube_loc, tex_normalMap_loc;;
 GLint texMode_uniformId;
 GLuint TextureArray[6];
 
 GLint normalMap_loc;
 GLint specularMap_loc;
 GLint diffMapCount_loc;
+GLint reflect_perFragment_uniformId;
+
+GLint shadowMode_uniformId;
 
 // Snowballs
 int snowball_num = 50;
@@ -125,7 +129,7 @@ int snowball_num = 50;
 // Counters
 int lamps_num = 6;
 int houses_num = 4;
-int trees_num = 5;
+int trees_num = 36;
 
 // Cameras
 Camera cams[3];
@@ -662,53 +666,6 @@ void renderHouses(void) {
 	}
 }
 
-void renderTrees(void) {
-
-	GLint loc;
-	int treeId = 0;
-
-	// Enable blending for transparency
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	for (int i = 0; i < 5; ++i) {
-
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.ambient);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.diffuse);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.specular);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-		glUniform1f(loc, treesMeshes[treeId].mat.shininess);
-		pushMatrix(MODEL);
-
-		// set position and scale
-		float* pos = trees[i].getObstaclePosition();
-		translate(MODEL, pos[0], 0.0f, pos[1]);
-
-		// send matrices to OGL
-		computeDerivedMatrix(PROJ_VIEW_MODEL);
-		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-		// Render mesh
-		glUniform1i(texMode_uniformId, 4);
-		glBindVertexArray(treesMeshes[treeId].vao);
-
-		glDrawElements(treesMeshes[treeId].type, treesMeshes[treeId].numIndexes, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		popMatrix(MODEL);
-		treeId++;
-	}
-
-	// Disable blending after rendering
-	glDisable(GL_BLEND);
-}
-
 void renderSleigh(void) {
 
 	GLint loc;
@@ -814,46 +771,6 @@ void renderSnowballs(void) {
 	}
 }
 
-void renderPawns(void) {
-	GLint loc;
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	for (int i = 0; i < 6; ++i) {
-
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.ambient);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.diffuse);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.specular);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-		glUniform1f(loc, pawnsMeshes[i].mat.shininess);
-		pushMatrix(MODEL);
-
-		translate(MODEL, 20.0f, 0.0f, -10.0f * (i - 1));
-
-		// send matrices to OGL
-		computeDerivedMatrix(PROJ_VIEW_MODEL);
-		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-		// Render mesh
-		glUniform1i(texMode_uniformId, 2);
-		glBindVertexArray(pawnsMeshes[i].vao);
-
-		glDrawElements(pawnsMeshes[i].type, pawnsMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		popMatrix(MODEL);
-	}
-
-	glDisable(GL_BLEND);
-}
-
 void renderLamps(void) {
 	GLint loc;
 
@@ -906,6 +823,59 @@ void renderLamps(void) {
 	}
 
 	glDisable(GL_BLEND);
+}
+
+void renderBillboards(void)
+{
+	GLint loc;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glUniform1i(texMode_uniformId, 4); // draw textured quads
+	float pos[3];
+	int type = 0;
+
+	for (int i = 0; i < trees.size(); i++) {
+		pos[0] = trees[i].pos[0]; pos[1] = 0.0; pos[2] = trees[i].pos[1];
+
+		pushMatrix(MODEL);
+		translate(MODEL, pos[0], 0.0, pos[2]);
+
+
+		l3dBillboardCylindricalBegin(cams[activeCam].camPos, pos);
+
+		//diffuse and ambient color are not used in the tree quads
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, treesMeshes[0].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, treesMeshes[0].mat.shininess);
+
+		pushMatrix(MODEL);
+		translate(MODEL, 0.0, 3.0, 0.0f);
+
+		// send matrices to OGL
+		if (type == 0 || type == 1) {     //Cheating matrix reset billboard techniques
+			computeDerivedMatrix(VIEW_MODEL);
+
+			BillboardCheatCylindricalBegin();
+
+			computeDerivedMatrix_PVM(); // calculate PROJ_VIEW_MODEL
+		}
+		else computeDerivedMatrix(PROJ_VIEW_MODEL);
+
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+		glBindVertexArray(treesMeshes[0].vao);
+		glDrawElements(treesMeshes[0].type, treesMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+		popMatrix(MODEL);
+
+		//	if (type==0 || type==1) // restore matrix VIEW_MODEL não é necessário pois a PVM é sempre calculada a pArtir da MODEL e da VIEW que não são ALTERADAS
+
+		popMatrix(MODEL);
+	}
 }
 
 void renderScene(void) {
@@ -984,7 +954,7 @@ void renderScene(void) {
 	glUniform4fv(directional_uniformId, 1, res);
 
 	// Associate Texture Units to Texture Objects
-	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, leaf.jpeg in TU3
+	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, tree.png in TU3
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
@@ -1013,11 +983,11 @@ void renderScene(void) {
 	// Render objects
 	renderTerrain();
 	renderHouses();
-	renderTrees();
+	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
-	aiRecursive_render(scene, scene->mRootNode);
+	//aiRecursive_render(scene, scene->mRootNode);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -1352,9 +1322,6 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
-	specularMap_loc = glGetUniformLocation(shader.getProgramIndex(), "specularMap");
-	diffMapCount_loc = glGetUniformLocation(shader.getProgramIndex(), "diffMapCount");
 
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
@@ -1364,6 +1331,15 @@ GLuint setupShaders() {
 	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
 	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
+	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubeMap");
+	//tex_normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
+
+	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
+	specularMap_loc = glGetUniformLocation(shader.getProgramIndex(), "specularMap");
+	diffMapCount_loc = glGetUniformLocation(shader.getProgramIndex(), "diffMapCount");
+
+	// shadow
+	shadowMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "shadowMode");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
@@ -1454,7 +1430,7 @@ void init()
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
-	Texture2D_Loader(TextureArray, "leaf.jpeg", 3); // for trees
+	Texture2D_Loader(TextureArray, "tree.png", 3); // for trees
 	Texture2D_Loader(TextureArray, "glass.jpeg", 4); // for lamps
 	Texture2D_Loader(TextureArray, "green_metal.jpeg", 5); // for lamps
 
@@ -1465,34 +1441,12 @@ void init()
 	float shininess = 100.0f;
 	int texcount = 0;
 
-	std::string filepath;
-
-	while (true) {
-		cout << "Input the directory name containing the OBJ file: ";
-		cin >> model_dir;
-
-		std::ostringstream oss;
-		oss << model_dir << "/" << model_dir << ".obj";
-		filepath = oss.str();   //path of OBJ file in the VS project
-
-		strcat(model_dir, "/");  //directory path in the VS project
-
-		//check if file exists
-		ifstream fin(filepath.c_str());
-		if (!fin.fail()) {
-			fin.close();
-			break;
-		}
-		else
-			printf("Couldn't open file: %s\n", filepath.c_str());
-	}
-
 	//import 3D file into Assimp scene graph
-	Import3DFromFile(filepath);
-	
+	/*std::string filepath = "house/house.obj";
+	if (!Import3DFromFile(filepath))
+		return;
 
-	//creation of Mymesh array with VAO Geometry and Material
-	myMeshes = createMeshFromAssimp(scene);
+	myMeshes = createMeshFromAssimp(scene);*/
 
 	//
 	// TERRAIN
@@ -1555,17 +1509,15 @@ void init()
 	// TREES
 	//
 
-	for (int i = 0; i < 5; i++) {
-		// create geometry and VAO of the cone for each tree
-		amesh = createCone(3.0f, 0.9f, 20);
-		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-		amesh.mat.shininess = shininess;
-		amesh.mat.texCount = texcount;
-		treesMeshes.push_back(amesh);
-	}
+	float tree_spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float tree_shininess = 10.0f;
+
+	amesh = createQuad(6, 6);
+	memcpy(amesh.mat.specular, tree_spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = tree_shininess;
+	amesh.mat.texCount = texcount;
+	treesMeshes.push_back(amesh);
 
 	//
 	// SNOWBALL
@@ -1639,9 +1591,11 @@ void init()
 		houses.push_back(house);
 	}
 
-	for (int i = 0; i < 5; i++) {
-		Obstacle tree = Obstacle(1.5f, (i - 0.68f) * -8.0f, tree_width, tree_height, tree_width);
-		trees.push_back(tree);
+	for (int i = -3; i < 3; i++) {
+		for (int j = -3; j < 3; j++) {
+			Obstacle tree = Obstacle(5 + i * 15.0, 5 + j * 15.0, tree_width, tree_height, tree_width);
+			trees.push_back(tree);
+		}
 	}
 
 	for (int i = 0; i < lamps_num; i++) {
@@ -1706,7 +1660,6 @@ int main(int argc, char** argv) {
 	printf("GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	std::cout << "status " << status << std::endl;
-
 	if (!setupShaders())
 		return(1);
 
