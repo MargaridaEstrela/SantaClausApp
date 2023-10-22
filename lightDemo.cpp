@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <chrono>
 
 // include GLEW to access OpenGL 3.3 functions
 #include <GL/glew.h>
@@ -176,6 +177,7 @@ vector<struct Obstacle> trees;
 float lamp_height = 4.5f, lamp_width = 0.5f;
 vector<struct Obstacle> lamps;
 bool collision = false;
+bool isHit = false;
 int keyUp = 0;
 
 void updateSleighAABB(float x, float y, float z) {
@@ -370,9 +372,10 @@ void timer(int value)
 
 		//check collision with snowballs
 		if (snowballs[i].getSnowballAABB().intersects(sleigh_aabb)) {
-			restartSleigh();
 			collision = true;
 			lives--;
+			snowballs[i].generateRandomParameters(50.0f);
+			restartSleigh();
 		}
 
 		if (lives == 0) {
