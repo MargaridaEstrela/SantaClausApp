@@ -272,6 +272,7 @@ void restartGame(void) {
 
 	restartSleigh();
 
+	final_score = score;
 	score = 0;
 	lives = 5;
 	status = 0;
@@ -331,7 +332,7 @@ void timer(int value)
 	glutSetWindowTitle(s.c_str());
 	FrameCount = 0;
 
-	if (paused) {
+	if (paused || status == 2) {
 		glutTimerFunc(0, timer, 0);
 		return;
 	}
@@ -375,6 +376,8 @@ void timer(int value)
 		}
 
 		if (lives == 0) {
+			final_score = score;
+			score = 0;
 			status = 2; // game over
 			break;
 		}
@@ -564,7 +567,6 @@ void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly
 
 	for (i = 0; i < flare->nPieces; ++i)
 	{
-		
 		// Position is interpolated along line between start and destination.
 		px = (int)((1.0f - flare->element[i].fDistance) * lx + flare->element[i].fDistance * dx);
 		py = (int)((1.0f - flare->element[i].fDistance) * ly + flare->element[i].fDistance * dy);
@@ -1254,8 +1256,8 @@ void renderScene(void) {
 	if (paused) RenderText(shaderText, "Paused", WinX / 2 - 85, WinY / 2, 1.0f, 1.0f, 1.0f, 1.0f);
 	else if (status == 2) {
 		RenderText(shaderText, "Game Over", WinX / 2 - 125, WinY / 2, 1.0f, 1.0f, 0.0f, 0.0f);
-		string final_score = "Final Score: " + to_string(score);
-		RenderText(shaderText, final_score, WinX / 2 - 85, WinY / 2 - 50, 0.5f, 1.0f, 1.0f, 1.0f);
+		string finalScore = "Final Score: " + to_string(final_score);
+		RenderText(shaderText, finalScore, WinX / 2 - 85, WinY / 2 - 50, 0.5f, 1.0f, 1.0f, 1.0f);
 		RenderText(shaderText, "Press [R] to restart", WinX / 2 - 85, 50, 0.4f, 1.0f, 1.0f, 1.0f);
 	}
 
@@ -1406,7 +1408,6 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		paused = !paused;
 		status = !status;
 		if (!paused) startTime = glutGet(GLUT_ELAPSED_TIME);
-		std::cout << "status " << status << std::endl;
 		break;
 
 	case 'r':
