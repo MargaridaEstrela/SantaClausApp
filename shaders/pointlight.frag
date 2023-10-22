@@ -133,11 +133,18 @@ void main() {
 			texel = texture(texmap5, DataIn.tex_coord);  // texel from green_metal.webp
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
 		}
-		else // multitexturing	
+		else if (texMode == 7) // multitexturing	
 		{
 			texel = texture(texmap2, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
+		} 
+		else // Flare
+		{
+			texel = texture(texmap, DataIn.tex_coord);  //texel from element flare texture
+			if((texel.a == 0.0)  || (mat.diffuse.a == 0.0) ) discard;
+			else
+				colorOut = mat.diffuse * texel;
 		}
 
 
