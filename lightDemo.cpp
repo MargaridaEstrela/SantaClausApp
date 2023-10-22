@@ -77,7 +77,7 @@ int status = 0;				// 0:run; 1:paused; 2:game over
 VSShaderLib shader;			//geometry
 VSShaderLib shaderText;		//render bitmap text
 
-bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
+bool normalMapKey = true; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
@@ -111,7 +111,7 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_normalMap_loc;
 GLint texMode_uniformId;
 GLuint TextureArray[6];
 
@@ -556,7 +556,7 @@ void aiRecursive_render(const aiScene* sc, const aiNode* nd)
 		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
 		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
 		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+		glUniformMatrix3fv(normal_uniformId,1, GL_FALSE, mNormal3x3);
 
 		// bind VAO
 		glBindVertexArray(myMeshes[nd->mMeshes[n]].vao);
@@ -590,6 +590,19 @@ void renderTerrain(void) {
 	glUniform4fv(loc, 1, terrainMesh.mat.specular);
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, terrainMesh.mat.shininess);
+
+	loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+	glUniform1i(loc, 1);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+	glUniform1i(loc, 1);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+	glUniform1i(loc, 1);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+	glUniform1i(loc, 1);
+
+	glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0;
+	glUniform1i(specularMap_loc, false);
+	glUniform1ui(diffMapCount_loc, 0);
 
 	pushMatrix(MODEL);
 	translate(MODEL, 2.0f, 0.0f, 2.0f);
@@ -627,6 +640,19 @@ void renderHouses(void) {
 		glUniform4fv(loc, 1, housesMeshes[houseId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, housesMeshes[houseId].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
 
 		pushMatrix(MODEL);
 
@@ -681,6 +707,20 @@ void renderTrees(void) {
 		glUniform4fv(loc, 1, treesMeshes[treeId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, treesMeshes[treeId].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
 		pushMatrix(MODEL);
 
 		// set position and scale
@@ -728,6 +768,19 @@ void renderSleigh(void) {
 		glUniform4fv(loc, 1, sleighMesh[sleighId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, sleighMesh[sleighId].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
 
 		pushMatrix(MODEL);
 
@@ -791,6 +844,20 @@ void renderSnowballs(void) {
 		glUniform4fv(loc, 1, snowballMeshes[i].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, snowballMeshes[i].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
 		pushMatrix(MODEL);
 
 		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
@@ -830,6 +897,20 @@ void renderPawns(void) {
 		glUniform4fv(loc, 1, pawnsMeshes[i].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, pawnsMeshes[i].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
 		pushMatrix(MODEL);
 
 		translate(MODEL, 20.0f, 0.0f, -10.0f * (i - 1));
@@ -870,6 +951,20 @@ void renderLamps(void) {
 		glUniform4fv(loc, 1, lampsMeshes[i].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, lampsMeshes[i].mat.shininess);
+
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+		glUniform1i(loc, 1);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+		glUniform1i(loc, 1);
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
 		pushMatrix(MODEL);
 
 		// set position and scale
@@ -1364,6 +1459,7 @@ GLuint setupShaders() {
 	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
 	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
+	tex_normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "texmapnormal");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");

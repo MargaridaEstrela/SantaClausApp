@@ -7,6 +7,11 @@ uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
 
+uniform	sampler2D texUnitDiff;
+uniform	sampler2D texUnitDiff1;
+uniform	sampler2D texUnitSpec;
+uniform	sampler2D texUnitNormalMap;
+
 uniform int texMode;
 
 out vec4 colorOut;
@@ -21,6 +26,10 @@ struct Materials {
 };
 
 uniform Materials mat;
+
+uniform bool normalMap;  //for normal mapping
+uniform bool specularMap;
+uniform uint diffMapCount;
 
 uniform vec4 spotDir;
 const float spotCosCutOff = 0.93;
@@ -43,6 +52,8 @@ in Data {
 	vec2 tex_coord;
 } DataIn;
 
+vec4 diff, auxSpec;
+
 void main() {
 
 	vec4 texel, texel1;
@@ -53,7 +64,14 @@ void main() {
 
 	vec4 spec = vec4(0.0);
 
-	vec3 n = normalize(DataIn.normal);
+	vec3 n;
+	
+	if (normalMap) {
+		n = normalize(2.0 * texture(texUnitNormalMap, DataIn.tex_coord).rgb - 1.0);  //normal in tangent space
+	}
+	else {
+		n = normalize(DataIn.normal);
+	}
 	vec3 e = normalize(DataIn.eye);
 
 	for (int i = 0; i <9; i++) {
@@ -86,6 +104,24 @@ void main() {
 					spec = mat.specular * pow(intSpec, mat.shininess) * attenuation;
 				}
 			}
+		}
+
+		if (mat.texCount == 0) {
+			diff = mat.diffuse;
+			spec = mat.specular;
+		}
+		else {
+			if(diffMapCount == 0)
+				diff = mat.diffuse;
+			else if(diffMapCount == 1)
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord);
+			else
+				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord) * texture(texUnitDiff1, DataIn.tex_coord);
+
+		if(specularMap) 
+			auxSpec = mat.specular * texture(texUnitSpec, DataIn.tex_coord);
+		else
+			auxSpec = mat.specular;
 		}
 
 		if (i == 0) intensity *= 0.5;				// directional light
