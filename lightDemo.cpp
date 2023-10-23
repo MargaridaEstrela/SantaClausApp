@@ -14,6 +14,7 @@
 #include <math.h>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <string>
 #include <chrono>
 
@@ -26,6 +27,9 @@
 
 #include <IL/il.h>
 
+// assimp include files. These three are usually needed.
+#include "assimp/Importer.hpp"	//OO version Header!
+#include "assimp/scene.h"
 
 // Use Very Simple Libs
 #include "VSShaderlib.h"
@@ -41,12 +45,40 @@
 #include "snowball.h"
 #include "obstacle.h"
 #include "AABB.h"
+#include "meshFromAssimp.h"
+#include "l3dBillboard.h"
 
 #include "flare.h"
 
 using namespace std;
 
 #define CAPTION "SantaClaus App"
+
+#define MAX_PARTICLES  6000
+#define frand()			((float)rand()/RAND_MAX)
+
+// Created an instance of the Importer class in the meshFromAssimp.cpp file
+extern Assimp::Importer importer;
+// the global Assimp scene object
+extern const aiScene* scene;
+char model_dir[50];  //initialized by the user input at the console
+// scale factor for the Assimp model to fit in the window
+extern float scaleFactor;
+
+int fireworks = 0;
+
+typedef struct {
+	float	life;
+	float	fade;
+	float	r, g, b;    // color
+	GLfloat x, y, z;    // position
+	GLfloat vx, vy, vz; // speed 
+	GLfloat ax, ay, az; // acceleration
+} Particle;
+
+Particle particle[MAX_PARTICLES];
+int dead_num_particles = 0;
+
 int WindowHandle = 0;
 int WinX = 1024, WinY = 768;
 
@@ -75,6 +107,8 @@ int status = 0;				// 0:run; 1:paused; 2:game over
 VSShaderLib shader;			//geometry
 VSShaderLib shaderText;		//render bitmap text
 
+bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
+
 //File with the font
 const string font_name = "fonts/arial.ttf";
 
@@ -89,6 +123,7 @@ MyMesh terrainMesh;
 vector<struct MyMesh> snowballMeshes;
 MyMesh stencilMesh;
 vector<struct Snowball> snowballs;
+vector<struct MyMesh> fireworkMeshes;
 MyMesh flareMesh;
 
 //Flare effect
@@ -113,9 +148,16 @@ GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_cube_loc;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_cube_loc, tex_normalMap_loc;;
 GLint texMode_uniformId;
-GLuint TextureArray[7];
+GLuint TextureArray[8];
+
+GLint normalMap_loc;
+GLint specularMap_loc;
+GLint diffMapCount_loc;
+GLint reflect_perFragment_uniformId;
+
+GLint shadowMode_uniformId;
 GLuint FlareTextureArray[5];
 
 // Snowballs
@@ -124,7 +166,7 @@ int snowball_num = 50;
 // Counters
 int lamps_num = 6;
 int houses_num = 4;
-int trees_num = 5;
+int trees_num = 36;
 
 // Cameras
 Camera cams[3];
@@ -172,13 +214,85 @@ AABB sleigh_aabb = AABB();
 // Obstacles
 float house_height = 4.0f, house_width = 6.0f;
 vector<struct Obstacle> houses;
-float tree_height = 3.0f, tree_width = 1.8f;
+float tree_height = 4.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
 float lamp_height = 4.5f, lamp_width = 0.5f;
 vector<struct Obstacle> lamps;
 bool collision = false;
 bool isHit = false;
 int keyUp = 0;
+
+void updateParticles()
+{
+	int i;
+	float h;
+
+	/* Método de Euler de integração de eq. diferenciais ordinárias
+	h representa o step de tempo; dv/dt = a; dx/dt = v; e conhecem-se os valores iniciais de x e v */
+
+	//h = 0.125f;
+	h = 0.033;
+	if (fireworks) {
+
+		for (i = 0; i < MAX_PARTICLES; i++)
+		{
+			particle[i].x += (h * particle[i].vx);
+			particle[i].y += (h * particle[i].vy);
+			particle[i].z += (h * particle[i].vz);
+			particle[i].vx += (h * particle[i].ax);
+			particle[i].vy += (h * particle[i].ay);
+			particle[i].vz += (h * particle[i].az);
+			particle[i].life -= particle[i].fade;
+		}
+	}
+}
+
+
+void initParticles(void)
+{
+	GLfloat v, theta, phi;
+	int i;
+
+	for (i = 0; i < MAX_PARTICLES; i++)
+	{
+		v = 0.8 * frand() + 0.2;
+		phi = frand() * 3.14;
+		theta = 2.0 * frand() * 3.14;
+
+		if (i / (MAX_PARTICLES / 4) == 0) {
+			particle[i].x = 40.0f;
+			particle[i].z = 0.0f;
+		}
+		else if (i / (MAX_PARTICLES / 4) == 1) {
+			particle[i].x = -40.0f;
+			particle[i].z = 0.0f;
+		}
+		else if (i / (MAX_PARTICLES / 4) == 2) {
+			particle[i].x = 0.0f;
+			particle[i].z = 40.0f;
+		}
+		else if (i / (MAX_PARTICLES / 4) == 3) {
+			particle[i].x = 0.0f;
+			particle[i].z = -40.0f;
+		}
+
+		particle[i].y = 0.0f;
+		particle[i].vx = v * cos(theta) * sin(phi);
+		particle[i].vy = v * cos(phi);
+		particle[i].vz = v * sin(theta) * sin(phi);
+		particle[i].ax = 0.0f; /* simular um pouco de vento */
+		particle[i].ay = 0.5f; /* simular a aceleração da gravidade */
+		particle[i].az = 0.0f;
+
+		/* tom amarelado que vai ser multiplicado pela textura que varia entre branco e preto */
+		particle[i].r = 0.882f;
+		particle[i].g = 0.552f;
+		particle[i].b = 0.211f;
+
+		particle[i].life = 1.0f;		/* vida inicial */
+		particle[i].fade = 0.003f;	    /* step de decréscimo da vida para cada iteração */
+	}
+}
 
 void updateSleighAABB(float x, float y, float z) {
 	float x_min = 50, x_max = -50, y_min = 50, y_max = -50, z_min = 50, z_max = -50;
@@ -405,6 +519,11 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
+	if (score % 1000 == 0) {
+		fireworks = 1;
+		initParticles();
+	}
+
 	score++;
 	glutTimerFunc(1 / delta_t, timer, 0);
 }
@@ -528,6 +647,110 @@ void createStencil(int h, int w, GLint ref) {
 // Render stufff
 //
 
+// Recursive render of the Assimp Scene Graph
+
+void aiRecursive_render(const aiScene* sc, const aiNode* nd)
+{
+	GLint loc;
+
+	// Get node transformation matrix
+	aiMatrix4x4 m = nd->mTransformation;
+	// OpenGL matrices are column major
+	m.Transpose();
+
+	// save model matrix and apply node transformation
+	pushMatrix(MODEL);
+
+	float aux[16];
+	memcpy(aux, &m, sizeof(float) * 16);
+	multMatrix(MODEL, aux);
+
+
+	// draw all meshes assigned to this node
+	for (unsigned int n = 0; n < nd->mNumMeshes; ++n) {
+
+
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.emissive");
+		glUniform4fv(loc, 1, myMeshes[nd->mMeshes[n]].mat.emissive);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, myMeshes[nd->mMeshes[n]].mat.shininess);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.texCount");
+		glUniform1i(loc, myMeshes[nd->mMeshes[n]].mat.texCount);
+
+		unsigned int  diffMapCount = 0;  //read 2 diffuse textures
+
+		//devido ao fragment shader suporta 2 texturas difusas simultaneas, 1 especular e 1 normal map
+
+		glUniform1i(normalMap_loc, false);   //GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
+		if (myMeshes[nd->mMeshes[n]].mat.texCount != 0)
+			for (unsigned int i = 0; i < myMeshes[nd->mMeshes[n]].mat.texCount; ++i) {
+				if (myMeshes[nd->mMeshes[n]].texTypes[i] == DIFFUSE) {
+					if (diffMapCount == 0) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else if (diffMapCount == 1) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else printf("Only supports a Material with a maximum of 2 diffuse textures\n");
+				}
+				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == SPECULAR) {
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+					glUniform1i(specularMap_loc, true);
+				}
+				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == NORMALS) { //Normal map
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+					if (normalMapKey)
+						glUniform1i(normalMap_loc, normalMapKey);
+					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+
+				}
+				else printf("Texture Map not supported\n");
+			}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// bind VAO
+		glBindVertexArray(myMeshes[nd->mMeshes[n]].vao);
+
+		if (!shader.isProgramValid()) {
+			printf("Program Not Valid!\n");
+			exit(1);
+		}
+		// draw
+		glDrawElements(myMeshes[nd->mMeshes[n]].type, myMeshes[nd->mMeshes[n]].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+
+	// draw all children
+	for (unsigned int n = 0; n < nd->mNumChildren; ++n) {
+		aiRecursive_render(sc, nd->mChildren[n]);
+	}
+	popMatrix(MODEL);
+}
+
+
 void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly represent the projected position of light on viewport
 
 	int     dx, dy;          // Screen coordinates of "destination"
@@ -565,7 +788,7 @@ void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly
 
 	// Render each element. To be used Texture Unit 0
 
-	glUniform1i(texMode_uniformId, 8); // draw modulated textured particles 
+	glUniform1i(texMode_uniformId, 9); // draw modulated textured particles 
 	glUniform1i(tex_loc, 0);  //use TU 0
 
 	for (i = 0; i < flare->nPieces; ++i)
@@ -686,7 +909,7 @@ void renderHouses(void) {
 
 		// Render mesh
 		if (i >= 4) glUniform1i(texMode_uniformId, 1);
-		else  glUniform1i(texMode_uniformId, 7);
+		else  glUniform1i(texMode_uniformId, 8);
 		glBindVertexArray(housesMeshes[houseId].vao);
 
 		glDrawElements(housesMeshes[houseId].type, housesMeshes[houseId].numIndexes, GL_UNSIGNED_INT, 0);
@@ -695,53 +918,6 @@ void renderHouses(void) {
 		popMatrix(MODEL);
 		houseId++;
 	}
-}
-
-void renderTrees(void) {
-
-	GLint loc;
-	int treeId = 0;
-
-	// Enable blending for transparency
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	for (int i = 0; i < 5; ++i) {
-
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.ambient);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.diffuse);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-		glUniform4fv(loc, 1, treesMeshes[treeId].mat.specular);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-		glUniform1f(loc, treesMeshes[treeId].mat.shininess);
-		pushMatrix(MODEL);
-
-		// set position and scale
-		float* pos = trees[i].getObstaclePosition();
-		translate(MODEL, pos[0], 0.0f, pos[1]);
-
-		// send matrices to OGL
-		computeDerivedMatrix(PROJ_VIEW_MODEL);
-		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-		// Render mesh
-		glUniform1i(texMode_uniformId, 4);
-		glBindVertexArray(treesMeshes[treeId].vao);
-
-		glDrawElements(treesMeshes[treeId].type, treesMeshes[treeId].numIndexes, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		popMatrix(MODEL);
-		treeId++;
-	}
-
-	// Disable blending after rendering
-	glDisable(GL_BLEND);
 }
 
 void renderSleigh(void) {
@@ -849,46 +1025,6 @@ void renderSnowballs(void) {
 	}
 }
 
-void renderPawns(void) {
-	GLint loc;
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	for (int i = 0; i < 6; ++i) {
-
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.ambient);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.diffuse);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-		glUniform4fv(loc, 1, pawnsMeshes[i].mat.specular);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-		glUniform1f(loc, pawnsMeshes[i].mat.shininess);
-		pushMatrix(MODEL);
-
-		translate(MODEL, 20.0f, 0.0f, -10.0f * (i - 1));
-
-		// send matrices to OGL
-		computeDerivedMatrix(PROJ_VIEW_MODEL);
-		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-		// Render mesh
-		glUniform1i(texMode_uniformId, 2);
-		glBindVertexArray(pawnsMeshes[i].vao);
-
-		glDrawElements(pawnsMeshes[i].type, pawnsMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		popMatrix(MODEL);
-	}
-
-	glDisable(GL_BLEND);
-}
-
 void renderLamps(void) {
 	GLint loc;
 
@@ -941,6 +1077,129 @@ void renderLamps(void) {
 	}
 
 	glDisable(GL_BLEND);
+}
+
+void renderBillboards(void)
+{
+	GLint loc;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glUniform1i(texMode_uniformId, 4); // draw textured quads
+	float pos[3];
+	int type = 0;
+
+	for (int i = 0; i < trees.size(); i++) {
+		pos[0] = trees[i].pos[0]; pos[1] = 0.0; pos[2] = trees[i].pos[1];
+
+		pushMatrix(MODEL);
+		translate(MODEL, pos[0], 0.0, pos[2]);
+
+
+		l3dBillboardCylindricalBegin(cams[activeCam].camPos, pos);
+
+		//diffuse and ambient color are not used in the tree quads
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, treesMeshes[0].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, treesMeshes[0].mat.shininess);
+
+		pushMatrix(MODEL);
+		translate(MODEL, 0.0, 3.0, 0.0f);
+
+		// send matrices to OGL
+		if (type == 0 || type == 1) {     //Cheating matrix reset billboard techniques
+			computeDerivedMatrix(VIEW_MODEL);
+
+			BillboardCheatCylindricalBegin();
+
+			computeDerivedMatrix_PVM(); // calculate PROJ_VIEW_MODEL
+		}
+		else computeDerivedMatrix(PROJ_VIEW_MODEL);
+
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+		glBindVertexArray(treesMeshes[0].vao);
+		glDrawElements(treesMeshes[0].type, treesMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+		popMatrix(MODEL);
+		popMatrix(MODEL);
+	}
+}
+
+void renderFireworks(void)
+{
+	GLint loc;
+	if (fireworks) {
+
+		float particle_color[4];
+
+		updateParticles();
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glDepthMask(GL_FALSE);  //Depth Buffer Read Only
+
+		glUniform1i(texMode_uniformId, 7); // draw modulated textured particles 
+
+		for (int i = 0; i < MAX_PARTICLES; i++)
+		{
+			if (particle[i].life > 0.0f)
+			{
+				particle_color[0] = particle[i].r;
+				particle_color[1] = particle[i].g;
+				particle_color[2] = particle[i].b;
+				particle_color[3] = particle[i].life;
+
+				// send the material - diffuse color modulated with texture
+				loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+				glUniform4fv(loc, 1, particle_color);
+
+				pushMatrix(MODEL);
+				translate(MODEL, particle[i].x, particle[i].y, particle[i].z);
+
+				if (i / (MAX_PARTICLES / 4) == 0) {
+					rotate(MODEL, -90, 0, 1, 0);
+				}
+				else if (i / (MAX_PARTICLES / 4) == 1) {
+					rotate(MODEL, 90, 0, 1, 0);
+				}
+				else if (i / (MAX_PARTICLES / 4) == 2) {
+					rotate(MODEL, 180, 0, 1, 0);
+				}
+				else if (i / (MAX_PARTICLES / 4) == 3) {
+					;
+				}
+
+
+				// send matrices to OGL
+				computeDerivedMatrix(PROJ_VIEW_MODEL);
+				glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+				glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+				computeNormalMatrix3x3();
+				glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+				glBindVertexArray(fireworkMeshes[0].vao);
+				glDrawElements(fireworkMeshes[0].type, fireworkMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+				popMatrix(MODEL);
+
+
+			}
+			else dead_num_particles++;
+		}
+
+		glDepthMask(GL_TRUE); //make depth buffer again writeable
+
+		if (dead_num_particles == MAX_PARTICLES) {
+			fireworks = 0;
+			dead_num_particles = 0;
+			printf("All particles dead\n");
+		}
+
+	}
 }
 
 void renderRearView(void) {
@@ -1044,7 +1303,10 @@ void renderRearView(void) {
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
 	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[6]);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[6]);
+
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[7]);
 
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
@@ -1052,14 +1314,15 @@ void renderRearView(void) {
 	glUniform1i(tex_loc3, 3);
 	glUniform1i(tex_loc4, 4);
 	glUniform1i(tex_loc5, 5);
-	glUniform1i(tex_cube_loc, 6);
+	glUniform1i(tex_loc6, 6);
+	glUniform1i(tex_cube_loc, 7);
 
 	glStencilFunc(GL_EQUAL, 0x0, 0x1);
 
 	// Render objects
 	renderTerrain();
 	renderHouses();
-	renderTrees();
+	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
@@ -1164,7 +1427,7 @@ void renderScene(void) {
 	glUniform4fv(directional_uniformId, 1, res);
 
 	// Associate Texture Units to Texture Objects
-	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, leaf.jpeg in TU3
+	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, tree.png in TU3
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
@@ -1184,7 +1447,10 @@ void renderScene(void) {
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
 	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[6]);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[6]);
+
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[7]);
 
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
@@ -1192,17 +1458,21 @@ void renderScene(void) {
 	glUniform1i(tex_loc3, 3);
 	glUniform1i(tex_loc4, 4);
 	glUniform1i(tex_loc5, 5);
-	glUniform1i(tex_cube_loc, 6);
+	glUniform1i(tex_loc6, 6);
+	glUniform1i(tex_cube_loc, 7);
 
 	glStencilFunc(GL_EQUAL, 0x1, 0x1);
 
 	// Render objects
 	renderTerrain();
 	renderHouses();
-	renderTrees();
+	//renderTrees();
+	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
 	renderLamps();
+	renderFireworks();
+	//aiRecursive_render(scene, scene->mRootNode);
 
 	if (flareEffect && !spotLightsOn) {
 
@@ -1443,6 +1713,7 @@ void processKeysUp(unsigned char key, int xx, int yy)
 }
 
 
+
 // ------------------------------------------------------------
 //
 // Mouse Events
@@ -1558,6 +1829,8 @@ GLuint setupShaders() {
 	glBindAttribLocation(shader.getProgramIndex(), VERTEX_COORD_ATTRIB, "position");
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
 	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
+	glBindAttribLocation(shader.getProgramIndex(), TANGENT_ATTRIB, "tangent");
+	glBindAttribLocation(shader.getProgramIndex(), BITANGENT_ATTRIB, "bitangent");
 
 	glLinkProgram(shader.getProgramIndex());
 	printf("InfoLog for Model Rendering Shader\n%s\n\n", shaderText.getAllInfoLogs().c_str());
@@ -1579,7 +1852,16 @@ GLuint setupShaders() {
 	tex_loc3 = glGetUniformLocation(shader.getProgramIndex(), "texmap3");
 	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
+	tex_loc6 = glGetUniformLocation(shader.getProgramIndex(), "texmap6");
 	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubemap");
+	//tex_normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
+
+	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
+	specularMap_loc = glGetUniformLocation(shader.getProgramIndex(), "specularMap");
+	diffMapCount_loc = glGetUniformLocation(shader.getProgramIndex(), "diffMapCount");
+
+	// shadow
+	shadowMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "shadowMode");
 
 	// toggle lights
 	fogOnId = glGetUniformLocation(shader.getProgramIndex(), "fog");
@@ -1670,9 +1952,10 @@ void init()
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
-	Texture2D_Loader(TextureArray, "leaf.jpeg", 3); // for trees
+	Texture2D_Loader(TextureArray, "tree.png", 3); // for trees
 	Texture2D_Loader(TextureArray, "glass.jpeg", 4); // for lamps
 	Texture2D_Loader(TextureArray, "green_metal.jpeg", 5); // for lamps
+	Texture2D_Loader(TextureArray, "particle.tga", 6); // for fireworks
 
 	//Flare elements textures
 	glGenTextures(5, FlareTextureArray);
@@ -1688,6 +1971,13 @@ void init()
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
+
+	//import 3D file into Assimp scene graph
+	/*std::string filepath = "house/house.obj";
+	if (!Import3DFromFile(filepath))
+		return;
+
+	myMeshes = createMeshFromAssimp(scene);*/
 
 	//
 	// TERRAIN
@@ -1749,19 +2039,15 @@ void init()
 	//
 	// TREES
 	//
+	float tree_spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float tree_shininess = 10.0f;
 
-	for (int i = 0; i < 5; i++) {
-		// create geometry and VAO of the cone for each tree
-		amesh = createCone(3.0f, 0.9f, 20);
-		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-		memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-		amesh.mat.shininess = shininess;
-		amesh.mat.texCount = texcount;
-		treesMeshes.push_back(amesh);
-	}
-
+	amesh = createQuad(6, 6);
+	memcpy(amesh.mat.specular, tree_spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = tree_shininess;
+	amesh.mat.texCount = texcount;
+	treesMeshes.push_back(amesh);
 	//
 	// SNOWBALL
 	//
@@ -1828,6 +2114,11 @@ void init()
 		lampsMeshes.push_back(amesh);
 	}
 
+	// Fireworks
+	amesh = createQuad(2, 2);
+	amesh.mat.texCount = texcount;
+	fireworkMeshes.push_back(amesh);
+
 	//
 	// CUBE
 	//
@@ -1856,9 +2147,11 @@ void init()
 		houses.push_back(house);
 	}
 
-	for (int i = 0; i < 5; i++) {
-		Obstacle tree = Obstacle(1.5f, (i - 0.68f) * -8.0f, tree_width, tree_height, tree_width);
-		trees.push_back(tree);
+	for (int i = -3; i < 3; i++) {
+		for (int j = -3; j < 3; j++) {
+			Obstacle tree = Obstacle(5 + i * 15.0, 5 + j * 15.0, tree_width, tree_height, tree_width);
+			trees.push_back(tree);
+		}
 	}
 
 	for (int i = 0; i < lamps_num; i++) {
@@ -1924,7 +2217,6 @@ int main(int argc, char** argv) {
 	printf("GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	std::cout << "status " << status << std::endl;
-
 	if (!setupShaders())
 		return(1);
 
