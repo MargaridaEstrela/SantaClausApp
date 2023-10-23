@@ -622,8 +622,8 @@ void createStencil(int h, int w, GLint ref) {
 	glUseProgram(shader.getProgramIndex());
 
 	//nao vai ser preciso enviar o material pois o cubo nao e desenhado
-	translate(MODEL, -0.5f, 2.8f, -0.5f);
-	scale(MODEL, 1.0f, 1.f, 1.0f);
+	translate(MODEL, -0.5f, 2.0f, -0.5f);
+	scale(MODEL, 1.0f, 0.5f, 1.0f);
 
 	// send matrices to OGL
 	computeDerivedMatrix(PROJ_VIEW_MODEL);
