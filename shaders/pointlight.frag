@@ -7,14 +7,13 @@ uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
 uniform sampler2D texmap6;
-uniform samplerCube cubemap;
+uniform samplerCube cubeMap;
 uniform	sampler2D texUnitDiff;
 uniform	sampler2D texUnitDiff1;
 uniform	sampler2D texUnitSpec;
 uniform	sampler2D texUnitNormalMap;
 
 uniform int texMode;
-
 out vec4 colorOut;
 
 uniform mat4 m_View;
@@ -59,6 +58,7 @@ in Data {
 	vec3 eye;
 	vec3 lightDir[9];
 	vec2 tex_coord;
+	vec3 skyboxTexCoord;
 } DataIn;
 
 void main() {
@@ -204,13 +204,15 @@ void main() {
 			else
 				colorOut = mat.diffuse * texel;
 		} 
-		else // texMode==11 normal comes from normalMap, if ==10 means regular normal vector 
+		else if (texMode == 10 || texMode == 11) // texMode==11 normal comes from normalMap, if ==10 means regular normal vector 
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
 			colorOut += min(intensity*texel + spec, 0.5*texel) / attenuation;
 		}
-
-
+		else if (texMode == 12) 
+		{
+			colorOut = texture(cubeMap, DataIn.skyboxTexCoord);
+		}
 	}
 
 	if (fog) {

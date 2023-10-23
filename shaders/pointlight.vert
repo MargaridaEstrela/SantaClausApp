@@ -3,6 +3,7 @@
 uniform mat4 m_pvm;
 uniform mat4 m_viewModel;
 uniform mat3 m_normal;
+uniform mat4 m_Model;   //por causa do cubo para a skybox
 
 uniform bool normalMap;
 uniform int texMode;
@@ -20,7 +21,7 @@ uniform vec4 spotLightL;
 uniform vec4 spotLightR;
 
 in vec4 position;
-in vec4 normal, tangent, bitangent;		//por causa do gerador de geometria
+in vec4 normal, tangent;		//por causa do gerador de geometria
 in vec4 texCoord;
 
 out Data {
@@ -28,6 +29,7 @@ out Data {
 	vec3 eye;
 	vec3 lightDir[9];
 	vec2 tex_coord;
+	vec3 skyboxTexCoord;
 } DataOut;
 
 void main () {
@@ -81,6 +83,8 @@ void main () {
 	DataOut.lightDir[7] = vec3(spotLightL - pos);
 	DataOut.lightDir[8] = vec3(spotLightR - pos);
 
+	DataOut.skyboxTexCoord = vec3(m_Model * position);	//Transformação de modelação do cubo unitário 
+	DataOut.skyboxTexCoord.x = - DataOut.skyboxTexCoord.x; //Texturas mapeadas no interior logo negar a coordenada x
 	DataOut.tex_coord = texCoord.st;
 
 	gl_Position = m_pvm * position;	

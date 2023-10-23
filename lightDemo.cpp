@@ -126,6 +126,7 @@ MyMesh stencilMesh;
 vector<struct Snowball> snowballs;
 vector<struct MyMesh> fireworkMeshes;
 MyMesh flareMesh;
+MyMesh skyboxMesh;
 
 //Flare effect
 FLARE_DEF AVTflare;
@@ -143,6 +144,7 @@ extern float mNormal3x3[9];
 GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
+GLint model_uniformId;
 GLint directional_uniformId;
 GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
 GLint spotLightL_uniformId, spotLightR_uniformId;
@@ -151,7 +153,7 @@ GLint spotDir_uniformId;
 
 GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_cube_loc, tex_normalMap_loc;;
 GLint texMode_uniformId;
-GLuint TextureArray[8];
+GLuint TextureArray[9];
 
 GLint normalMap_loc;
 GLint specularMap_loc;
@@ -1206,6 +1208,40 @@ void renderFireworks(void)
 	}
 }
 
+void renderSkyBox(void) {
+	glUniform1i(texMode_uniformId, 12);
+
+	//it won't write anything to the zbuffer; all subsequently drawn scenery to be in front of the sky box. 
+	glDepthMask(GL_FALSE);
+	glFrontFace(GL_CW); // set clockwise vertex order to mean the front
+
+	pushMatrix(MODEL);
+	pushMatrix(VIEW);  //se quiser anular a translação
+
+	//  Fica mais realista se não anular a translação da câmara 
+	// Cancel the translation movement of the camera - de acordo com o tutorial do Antons
+	mMatrix[VIEW][12] = 0.0f;
+	mMatrix[VIEW][13] = 0.0f;
+	mMatrix[VIEW][14] = 0.0f;
+
+	scale(MODEL, 100.0f, 100.0f, 100.0f);
+	translate(MODEL, -0.5f, -0.5f, -0.5f);
+
+	// send matrices to OGL
+	glUniformMatrix4fv(model_uniformId, 1, GL_FALSE, mMatrix[MODEL]); //Transformação de modelação do cubo unitário para o "Big Cube"
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+
+	glBindVertexArray(skyboxMesh.vao);
+	glDrawElements(skyboxMesh.type, skyboxMesh.numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+	popMatrix(MODEL);
+	popMatrix(VIEW);
+
+	glFrontFace(GL_CCW); // restore counter clockwise vertex order to mean the front
+	glDepthMask(GL_TRUE);
+}
+
 void renderRearView(void) {
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1309,8 +1345,6 @@ void renderRearView(void) {
 	glActiveTexture(GL_TEXTURE6);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[6]);
 
-	glActiveTexture(GL_TEXTURE7);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[7]);
 
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
@@ -1319,7 +1353,6 @@ void renderRearView(void) {
 	glUniform1i(tex_loc4, 4);
 	glUniform1i(tex_loc5, 5);
 	glUniform1i(tex_loc6, 6);
-	glUniform1i(tex_cube_loc, 7);
 
 	glStencilFunc(GL_EQUAL, 0x0, 0x1);
 
@@ -1465,9 +1498,12 @@ void renderScene(void) {
 	glUniform1i(tex_loc6, 6);
 	glUniform1i(tex_cube_loc, 7);
 
+	std::cout << "render skybox" << std::endl;
+
 	glStencilFunc(GL_EQUAL, 0x1, 0x1);
 
 	// Render objects
+	renderSkyBox();
 	renderTerrain();
 	renderHouses();
 	//renderTrees();
@@ -1836,7 +1872,7 @@ GLuint setupShaders() {
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
 	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
 	glBindAttribLocation(shader.getProgramIndex(), TANGENT_ATTRIB, "tangent");
-	glBindAttribLocation(shader.getProgramIndex(), BITANGENT_ATTRIB, "bitangent");
+	//glBindAttribLocation(shader.getProgramIndex(), BITANGENT_ATTRIB, "bitangent");
 
 	glLinkProgram(shader.getProgramIndex());
 	printf("InfoLog for Model Rendering Shader\n%s\n\n", shaderText.getAllInfoLogs().c_str());
@@ -1849,6 +1885,7 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
+	model_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_Model");
 
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
@@ -1859,7 +1896,7 @@ GLuint setupShaders() {
 	tex_loc4 = glGetUniformLocation(shader.getProgramIndex(), "texmap4");
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
 	tex_loc6 = glGetUniformLocation(shader.getProgramIndex(), "texmap6");
-	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubemap");
+	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubeMap");
 	//tex_normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
 
 	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
@@ -1954,7 +1991,7 @@ void init()
 	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	cams[2].setCameraType(0);
 
-	glGenTextures(7, TextureArray);
+	glGenTextures(8, TextureArray);
 	Texture2D_Loader(TextureArray, "snow.jpeg", 0); // for terrain
 	Texture2D_Loader(TextureArray, "roof.jpeg", 1); // for roof
 	Texture2D_Loader(TextureArray, "lightwood.tga", 2); // for sleigh
@@ -1963,6 +2000,10 @@ void init()
 	Texture2D_Loader(TextureArray, "green_metal.jpeg", 5); // for lamps
 	Texture2D_Loader(TextureArray, "particle.tga", 6); // for fireworks
 
+	//Sky Box Texture Object
+	const char* filenames[] = { "posx.jpg", "negx.jpg", "posy.jpg", "negy.jpg", "posz.jpg", "negz.jpg" };
+	TextureCubeMap_Loader(TextureArray, filenames, 7);
+
 	//Flare elements textures
 	glGenTextures(5, FlareTextureArray);
 	Texture2D_Loader(FlareTextureArray, "crcl.tga", 0);
@@ -1970,6 +2011,7 @@ void init()
 	Texture2D_Loader(FlareTextureArray, "hxgn.tga", 2);
 	Texture2D_Loader(FlareTextureArray, "ring.tga", 3);
 	Texture2D_Loader(FlareTextureArray, "sun.tga", 4);
+
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
 	float diff[] = { 0.8f, 0.6f, 0.4f, 1.0f };
@@ -2146,6 +2188,18 @@ void init()
 	//Load flare from file
 	loadFlareFile(&AVTflare, "flare.txt");
 
+	//
+	// SkyBox
+	//
+	amesh = createCube();
+	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	skyboxMesh = amesh;
+
 
 	// initialize obstacles
 	for (int i = 0; i < 4; i++) {
@@ -2244,6 +2298,7 @@ unsigned int getTextureId(char* name) {
 	}
 	return -1;
 }
+
 void    loadFlareFile(FLARE_DEF* flare, char* filename)
 {
 	int     n = 0;
