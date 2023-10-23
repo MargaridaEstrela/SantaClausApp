@@ -108,6 +108,7 @@ VSShaderLib shader;			//geometry
 VSShaderLib shaderText;		//render bitmap text
 
 bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
+int bumpmap = 0;
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
@@ -246,7 +247,6 @@ void updateParticles()
 		}
 	}
 }
-
 
 void initParticles(void)
 {
@@ -750,7 +750,6 @@ void aiRecursive_render(const aiScene* sc, const aiNode* nd)
 	popMatrix(MODEL);
 }
 
-
 void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly represent the projected position of light on viewport
 
 	int     dx, dy;          // Screen coordinates of "destination"
@@ -1015,7 +1014,13 @@ void renderSnowballs(void) {
 		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
 		// Render mesh
-		glUniform1i(texMode_uniformId, 3);
+		if (!bumpmap) {
+			glUniform1i(texMode_uniformId, 10);
+		}
+		else {
+			glUniform1i(texMode_uniformId, 11);
+		}
+
 		glBindVertexArray(snowballMeshes[i].vao);
 
 		glDrawElements(snowballMeshes[i].type, snowballMeshes[i].numIndexes, GL_UNSIGNED_INT, 0);
@@ -1079,8 +1084,7 @@ void renderLamps(void) {
 	glDisable(GL_BLEND);
 }
 
-void renderBillboards(void)
-{
+void renderBillboards(void) {
 	GLint loc;
 
 	glEnable(GL_BLEND);
@@ -1677,6 +1681,10 @@ void processKeysDown(unsigned char key, int xx, int yy)
 		else flareEffect = !flareEffect;
 		break;
 
+	case 'b':
+		bumpmap = !bumpmap;
+		break;
+
 	case 'p':
 		paused = !paused;
 		status = !status;
@@ -1711,8 +1719,6 @@ void processKeysUp(unsigned char key, int xx, int yy)
 {
 	keyStates[key] = false;     // Set the state of the current key to not pressed
 }
-
-
 
 // ------------------------------------------------------------
 //

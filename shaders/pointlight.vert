@@ -1,10 +1,11 @@
-#version 430
+#version 410
 
 uniform mat4 m_pvm;
 uniform mat4 m_viewModel;
 uniform mat3 m_normal;
 
 uniform bool normalMap;
+uniform int texMode;
 
 uniform vec4 directionalLight;
 
@@ -40,7 +41,7 @@ void main () {
 	eyeDir =  vec3(-pos);
 
 	// Bump Mapping
-	if(normalMap)  {  //convert eye and light vectors to tangent space
+	if(normalMap || texMode == 11)  {  //convert eye and light vectors to tangent space
 
 		//Calculate components of TBN basis in eye space
 		t = normalize(m_normal * tangent.xyz);  

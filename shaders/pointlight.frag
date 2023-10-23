@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform sampler2D texmap;
 uniform sampler2D texmap1;
@@ -75,7 +75,7 @@ void main() {
 	vec4 texel, texel1, cube_texel;
 
 	vec3 n = normalize(DataIn.normal);
-	if(normalMap)
+	if(normalMap || texMode == 11)
 		n = normalize(2.0 * texture(texUnitNormalMap, DataIn.tex_coord).rgb - 1.0);  //normal in tangent space
 	else
 		n = normalize(DataIn.normal);
@@ -197,12 +197,17 @@ void main() {
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		} 
-		else // Flare
+		else if (texMode == 9) // Flare
 		{
 			texel = texture(texmap, DataIn.tex_coord);  //texel from element flare texture
 			if((texel.a == 0.0)  || (mat.diffuse.a == 0.0) ) discard;
 			else
 				colorOut = mat.diffuse * texel;
+		} 
+		else // texMode==11 normal comes from normalMap, if ==10 means regular normal vector 
+		{
+			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
+			colorOut += min(intensity*texel + spec, 0.5*texel) / attenuation;
 		}
 
 
