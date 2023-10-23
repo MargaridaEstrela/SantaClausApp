@@ -12,7 +12,7 @@ public:
 	void changeMode();
 	bool getMode();
 
-private:
+public:
 	float pos[4];
 	float eye[4];
 	bool mode; // 0 = deactivated, 1 = activated

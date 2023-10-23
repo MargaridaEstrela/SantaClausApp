@@ -198,7 +198,7 @@ Light directionalLight;
 Light pointLight[n_pointLights];
 Light spotlight[n_spotlights];
 float spotDir[4];
-float lightPos[4] = {10.0f, 6.0f, 2.0f, 1.0f }; //position of point light in World coordinates
+float lightPos[4] = { 10.0f, 6.0f, 2.0f, 1.0f }; //position of point light in World coordinates
 
 
 // Sleigh
@@ -216,7 +216,7 @@ float house_height = 4.0f, house_width = 6.0f;
 vector<struct Obstacle> houses;
 float tree_height = 4.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
-float lamp_height = 4.5f, lamp_width = 0.5f;
+float lamp_height = 2.5f, lamp_width = 0.5f;
 vector<struct Obstacle> lamps;
 bool collision = false;
 bool isHit = false;
@@ -519,7 +519,7 @@ void timer(int value)
 		cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
 	}
 
-	if (score % 1000 == 0) {
+	if (score % 1000 == 0 && score > 0) {
 		fireworks = 1;
 		initParticles();
 	}
@@ -600,10 +600,93 @@ void changeSpotlightsMode() {
 	}
 }
 
+void mirrorLights() {
+	directionalLight.pos[1] *= -1.0f;
+
+	for (int i = 0; i < n_pointLights; i++) {
+		pointLight[i].pos[1] *= -1.0f;
+	}
+
+	for (int i = 0; i < n_spotlights; i++) {
+		spotlight[i].pos[1] *= -1.0f;
+	}
+}
+
+void loadLights() {
+	float res[4];
+	for (int i = 0; i < n_pointLights; i++) {
+		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   // position definided em World Coord so is converted to eye space
+		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
+	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
+	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
+	glUniform4fv(pointLight4_uniformId, 1, pointLight[3].getEye());
+	glUniform4fv(pointLight5_uniformId, 1, pointLight[4].getEye());
+	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
+
+	// Set spotlights
+	float model[4];
+	for (int i = 0; i < n_spotlights; i++) {
+		multMatrixPoint(MODEL, spotlight[i].getPosition(), model);
+		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
+		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
+	}
+
+	// Set pointLights
+	multMatrixPoint(VIEW, spotDir, res);
+
+	glUniform4fv(spotLightL_uniformId, 1, spotlight[0].getEye());
+	glUniform4fv(spotLightR_uniformId, 1, spotlight[1].getEye());
+	glUniform4fv(spotDir_uniformId, 1, res);
+
+	// Set global light
+	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
+	glUniform4fv(directional_uniformId, 1, res);
+}
+
 // ------------------------------------------------------------
 //
 // Stencil stuff
 //
+
+void createFloorStencil(GLenum func) {
+	GLint loc;
+
+	glUseProgram(shader.getProgramIndex());
+
+	glStencilFunc(GL_NEVER, 0x0, 0x1);
+	glStencilOp(func, GL_KEEP, GL_KEEP);
+
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+	glUniform4fv(loc, 1, terrainMesh.mat.ambient);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+	glUniform4fv(loc, 1, terrainMesh.mat.diffuse);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+	glUniform4fv(loc, 1, terrainMesh.mat.specular);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+	glUniform1f(loc, terrainMesh.mat.shininess);
+
+	pushMatrix(MODEL);
+
+	rotate(MODEL, 90, -1, 0, 0);
+
+	glUniform1i(texMode_uniformId, 0);
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+
+	// Render mesh
+	glBindVertexArray(terrainMesh.vao);
+
+	glDrawElements(terrainMesh.type, terrainMesh.numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+	popMatrix(MODEL);
+}
 
 void createStencil(int h, int w, GLint ref) {
 	/* create a diamond shaped stencil area */
@@ -798,7 +881,7 @@ void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly
 		py = (int)((1.0f - flare->element[i].fDistance) * ly + flare->element[i].fDistance * dy);
 		px = clampi(px, m_viewport[0], screenMaxCoordX);
 		py = clampi(py, m_viewport[1], screenMaxCoordY);
-		
+
 		// Piece size are 0 to 1; flare size is proportion of screen width; scale by flaredist/maxflaredist.
 		width = (int)(scaleDistance * flarescale * flare->element[i].fSize);
 
@@ -836,8 +919,14 @@ void render_flare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly
 	glDisable(GL_BLEND);
 }
 
-void renderTerrain(void) {
+void renderTerrain(bool blend) {
 	GLint loc;
+
+	if (!blend) glDisable(GL_BLEND);
+	if (activeCam == 2 && blend) {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 
 	// send the material
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -848,8 +937,8 @@ void renderTerrain(void) {
 	glUniform4fv(loc, 1, terrainMesh.mat.specular);
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, terrainMesh.mat.shininess);
-
 	pushMatrix(MODEL);
+
 	translate(MODEL, 2.0f, 0.0f, 2.0f);
 	rotate(MODEL, -90.0f, 1.0f, 0.0f, 0.0f);
 
@@ -868,6 +957,8 @@ void renderTerrain(void) {
 	glBindVertexArray(0);
 
 	popMatrix(MODEL);
+
+	glDisable(GL_BLEND);
 }
 
 void renderHouses(void) {
@@ -925,10 +1016,6 @@ void renderSleigh(void) {
 	GLint loc;
 	int sleighId = 0;
 
-	// Enable blending for transparency
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	for (int i = 0; i < 5; ++i) {
 
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -984,9 +1071,6 @@ void renderSleigh(void) {
 		popMatrix(MODEL);
 		sleighId++;
 	}
-
-	// Disable blending after rendering
-	glDisable(GL_BLEND);
 }
 
 void renderSnowballs(void) {
@@ -1002,6 +1086,7 @@ void renderSnowballs(void) {
 		glUniform4fv(loc, 1, snowballMeshes[i].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, snowballMeshes[i].mat.shininess);
+
 		pushMatrix(MODEL);
 
 		translate(MODEL, snowballs[i].pos[0], 0.3f, snowballs[i].pos[1]);
@@ -1023,13 +1108,13 @@ void renderSnowballs(void) {
 
 		popMatrix(MODEL);
 	}
+
+	// Disable blending after rendering
+	glDisable(GL_BLEND);
 }
 
 void renderLamps(void) {
 	GLint loc;
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	for (int i = 0; i < lamps_num * 2; ++i) {
 
@@ -1045,10 +1130,13 @@ void renderLamps(void) {
 
 		// set position and scale
 		if (i < lamps_num) {
+			glDisable(GL_BLEND);
 			float* pos = lamps[i].getObstaclePosition();
-			translate(MODEL, pos[0], 0.0f, pos[1]);
+			translate(MODEL, pos[0], 1.0f, pos[1]);
 		}
 		else {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			float* pos = lamps[i - lamps_num].getObstaclePosition();
 			translate(MODEL, pos[0], 2.25f, pos[1]);
 		}
@@ -1232,7 +1320,7 @@ void renderRearView(void) {
 	float target_x = sleigh_x + sleigh_direction_x * 2;
 	float target_y = sleigh_y + sleigh_direction_y * 2;
 	float target_z = sleigh_z + sleigh_direction_z * 2;
-	
+
 	float pos[3] = { cam_x, cam_y, cam_z };
 	float target[3] = { target_x, target_y, target_z };
 
@@ -1320,7 +1408,7 @@ void renderRearView(void) {
 	glStencilFunc(GL_EQUAL, 0x0, 0x1);
 
 	// Render objects
-	renderTerrain();
+	renderTerrain(false);
 	renderHouses();
 	renderBillboards();
 	renderSleigh();
@@ -1340,22 +1428,38 @@ void renderRearView(void) {
 }
 
 void renderScene(void) {
+	createStencil(WinX, WinY, 0x0);
+
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
 	FrameCount++;
+	glClear(GL_DEPTH_BUFFER_BIT);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
 
-	if (activeCam == 2) { // follow camera
+	/*if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
 		renderRearView();
 	}
 	else {
 		glDisable(GL_STENCIL_TEST);
+	}*/
+
+	glEnable(GL_STENCIL_TEST);
+	if (activeCam == 2) {
+		renderRearView();
 	}
 
-	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	if (activeCam == 2) {
+		glStencilFunc(GL_NOTEQUAL, 0x0, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	}
+	else {
+		glStencilFunc(GL_ALWAYS, 0x1, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	}
 
 	// load identity matrices
 	loadIdentity(VIEW);
@@ -1390,41 +1494,9 @@ void renderScene(void) {
 	glUniform1i(pointLightsOnId, pointLightsOn);
 	glUniform1i(spotLightsOnId, spotLightsOn);
 
-	// Set pointLights
-	float res[4];
-	for (int i = 0; i < n_pointLights; i++) {
-		multMatrixPoint(VIEW, pointLight[i].getPosition(), res);   // position definided em World Coord so is converted to eye space
-		pointLight[i].setEye(res[0], res[1], res[2], res[3]);
-	}
-
-	glUniform4fv(pointLight1_uniformId, 1, pointLight[0].getEye());
-	glUniform4fv(pointLight2_uniformId, 1, pointLight[1].getEye());
-	glUniform4fv(pointLight3_uniformId, 1, pointLight[2].getEye());
-	glUniform4fv(pointLight4_uniformId, 1, pointLight[3].getEye());
-	glUniform4fv(pointLight5_uniformId, 1, pointLight[4].getEye());
-	glUniform4fv(pointLight6_uniformId, 1, pointLight[5].getEye());
-
-	// Set spotlights
-	float model[4];
 	setSpotLights();
-	for (int i = 0; i < n_spotlights; i++) {
-		multMatrixPoint(MODEL, spotlight[i].getPosition(), model);
-		multMatrixPoint(VIEW, spotlight[i].getPosition(), res);
-		spotlight[i].setEye(res[0], res[1], res[2], res[3]);
-	}
-
-	// Set pointLights
 	setPointLights();
-
-	multMatrixPoint(VIEW, spotDir, res);
-
-	glUniform4fv(spotLightL_uniformId, 1, spotlight[0].getEye());
-	glUniform4fv(spotLightR_uniformId, 1, spotlight[1].getEye());
-	glUniform4fv(spotDir_uniformId, 1, res);
-
-	// Set global light
-	multMatrixPoint(VIEW, directionalLight.getPosition(), res);
-	glUniform4fv(directional_uniformId, 1, res);
+	loadLights();
 
 	// Associate Texture Units to Texture Objects
 	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, tree.png in TU3
@@ -1461,12 +1533,84 @@ void renderScene(void) {
 	glUniform1i(tex_loc6, 6);
 	glUniform1i(tex_cube_loc, 7);
 
-	glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	float mat[16];
+	GLfloat floor[4] = { 0, 1, 0, 0 };
+
+	glEnable(GL_DEPTH_TEST);
+
+	if (true) {
+		glClear(GL_STENCIL_BUFFER_BIT);
+		createFloorStencil(GL_INCR);
+		glStencilFunc(GL_EQUAL, 0x2, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+		mirrorLights();
+		loadLights();
+
+		loadIdentity(MODEL);
+		pushMatrix(MODEL);
+		scale(MODEL, 1.0f, -1.0f, 1.0f);
+		glCullFace(GL_FRONT);
+
+		renderHouses();
+		renderBillboards();
+		renderSleigh();
+		renderSnowballs();
+		renderLamps();
+		renderFireworks();
+
+		glCullFace(GL_BACK);
+		popMatrix(MODEL);
+
+		mirrorLights();
+
+		glClear(GL_STENCIL_BUFFER_BIT);
+		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+
+		renderTerrain(true);
+
+		//float res[4];
+
+		glUniform1i(shadowMode_uniformId, 1);
+		//constProduct(10, directionalLight.pos, res);
+
+		shadow_matrix(mat, floor, directionalLight.pos);
+		glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
+
+		//Dark the color stored in color buffer
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_DST_COLOR, GL_ZERO);
+
+		loadIdentity(MODEL);
+		pushMatrix(MODEL);
+		multMatrix(MODEL, mat);
+
+		renderHouses();
+		//renderBillboards();
+		renderSleigh();
+		renderSnowballs();
+		renderLamps();
+		//renderFireworks();
+
+		popMatrix(MODEL);
+
+		glDisable(GL_BLEND);
+		glEnable(GL_DEPTH_TEST);
+
+		//render the geometry
+		glUniform1i(shadowMode_uniformId, 0);
+	}
+	else {
+		renderTerrain(false);
+	}
+
+	//glStencilFunc(GL_EQUAL, 0x1, 0x1);
+
+	loadLights();
+	loadIdentity(MODEL);
 
 	// Render objects
-	renderTerrain();
 	renderHouses();
-	//renderTrees();
 	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
@@ -1489,21 +1633,21 @@ void renderScene(void) {
 		flarePos[0] = clampi((int)lightScreenPos[0], m_viewport[0], m_viewport[0] + m_viewport[2] - 1);
 		flarePos[1] = clampi((int)lightScreenPos[1], m_viewport[1], m_viewport[1] + m_viewport[3] - 1);
 		popMatrix(MODEL);
-		
+
 		//viewer looking down at  negative z direction
 		pushMatrix(PROJECTION);
 		loadIdentity(PROJECTION);
 		pushMatrix(VIEW);
 		loadIdentity(VIEW);
 		ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
-		
+
 		render_flare(&AVTflare, flarePos[0], flarePos[1], m_viewport);
-		
+
 		popMatrix(PROJECTION);
 		popMatrix(VIEW);
 	}
 
-	/* 
+	/*
 	// TEXT
 	*/
 
@@ -2092,7 +2236,7 @@ void init()
 
 	for (int i = 0; i < lamps_num; i++) {
 		// create geometry and VAO of the lamps'cylinder
-		amesh = createCylinder(4.0f, 0.06f, 20);
+		amesh = createCylinder(2.0f, 0.06f, 20);
 		memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 		memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 		memcpy(amesh.mat.specular, spec, 4 * sizeof(float));

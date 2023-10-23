@@ -51,7 +51,7 @@ const float expo = 0.1;
 const float density = 0.1;
 const float gradient = 1.0;
 
-const vec4 shadowC = vec4(.6, .6, .6, 1);
+const vec4 shadowC = vec4(0, 0, 0, 0.6);
 const float reflect_factor = 0.9;
 
 in Data {
@@ -62,12 +62,12 @@ in Data {
 } DataIn;
 
 void main() {
+	colorOut = vec4(0);
+
 	if(shadowMode && !fog) {
 		colorOut = shadowC;
 		return;
 	}
-
-	colorOut = vec4(0);
 
 	if (!directionalLightOn && !pointLightsOn && !spotLightsOn) return;
 
@@ -120,7 +120,7 @@ void main() {
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
 
-		if(mat.texCount != 0)
+		/*if(mat.texCount != 0)
 		{
 			vec4 diff, auxSpec;
 
@@ -146,11 +146,12 @@ void main() {
 			colorOut = vec4((max(intensity * diff, diff*0.15) + spec).rgb, 1.0);
 			return;
 		}
-		else if (texMode == 0) // modulate diffuse color with texel color
+		else*/ if (texMode == 0) // modulate diffuse color with texel color
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
+			colorOut[3] = 0.3;
 		} 
 		else if (texMode == 1) // Roof
 		{
@@ -213,7 +214,11 @@ void main() {
 		distance = max(0, distance);
 		float visibility = exp(-pow(distance * density, gradient));
 		visibility = clamp(visibility, 0.0, 1.0);
-		colorOut = mix(vec4(0.5, 0.5, 0.5, 1), colorOut, visibility);
+
+		if (shadowMode)
+			colorOut = mix(vec4(.9, .9, .9, 1), shadowC, visibility);
+		else
+			colorOut = mix(vec4(0.5, 0.5, 0.5, 1), colorOut, visibility);
 	}
 
 }
