@@ -6,6 +6,7 @@ uniform sampler2D texmap2;
 uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
+uniform sampler2D texmap6;
 uniform samplerCube cubeMap;
 uniform	sampler2D texUnitDiff;
 uniform	sampler2D texUnitDiff1;
@@ -183,6 +184,11 @@ void main() {
 		{
 			texel = texture(texmap5, DataIn.tex_coord);  // texel from green_metal.webp
 			colorOut += max(intensity*texel + spec, 0.07*texel) / attenuation;
+		}
+		else if (texMode == 7) // fireworks
+		{
+			texel = texture(texmap6, DataIn.tex_coord);
+			colorOut = 0.7 * texel;
 		}
 		else // multitexturing	
 		{
