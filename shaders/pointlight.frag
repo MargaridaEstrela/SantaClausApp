@@ -59,6 +59,7 @@ in Data {
 	vec3 lightDir[9];
 	vec2 tex_coord;
 	vec3 skyboxTexCoord;
+	vec3 reflected;
 } DataIn;
 
 void main() {
@@ -212,6 +213,20 @@ void main() {
 		else if (texMode == 12) 
 		{
 			colorOut = texture(cubeMap, DataIn.skyboxTexCoord);
+		}
+		else if (texMode == 13)
+		{
+			if(reflect_perFrag == 1) {  //reflected vector calculated here
+				vec3 reflected1 = vec3 (transpose(m_View) * vec4 (vec3(reflect(-e, n)), 0.0)); //reflection vector in world coord
+				reflected1.x= -reflected1.x;   
+				cube_texel = texture(cubeMap, reflected1);
+			}
+			else
+				cube_texel = texture(cubeMap, DataIn.reflected); //use interpolated reflected vector calculated in vertex shader
+	
+			texel = texture(texmap4, DataIn.tex_coord);  // texel from lighwood.tga
+			vec4 aux_color = mix(texel, cube_texel, reflect_factor);
+			colorOut += max(intensity*aux_color + spec, 0.07*aux_color); 
 		}
 	}
 

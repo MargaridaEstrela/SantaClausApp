@@ -127,6 +127,7 @@ vector<struct Snowball> snowballs;
 vector<struct MyMesh> fireworkMeshes;
 MyMesh flareMesh;
 MyMesh skyboxMesh;
+MyMesh environmentMesh;
 
 //Flare effect
 FLARE_DEF AVTflare;
@@ -145,13 +146,14 @@ GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
 GLint model_uniformId;
+GLint view_uniformId;
 GLint directional_uniformId;
 GLint pointLight1_uniformId, pointLight2_uniformId, pointLight3_uniformId, pointLight4_uniformId, pointLight5_uniformId, pointLight6_uniformId;
 GLint spotLightL_uniformId, spotLightR_uniformId;
 GLint fogOnId, directionalLightOnId, pointLightsOnId, spotLightsOnId;
 GLint spotDir_uniformId;
 
-GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_cube_loc, tex_normalMap_loc;;
+GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_cube_loc, tex_normalMap_loc, tex_environmentMap_loc;
 GLint texMode_uniformId;
 GLuint TextureArray[9];
 
@@ -194,6 +196,7 @@ bool directionalLightOn = true;
 bool pointLightsOn = false;
 bool spotLightsOn = false;
 bool flareEffect = false;
+bool reflect_perFragment = true;
 bool fog = false;
 const int n_pointLights = 6;
 const int n_spotlights = 2;
@@ -202,7 +205,6 @@ Light pointLight[n_pointLights];
 Light spotlight[n_spotlights];
 float spotDir[4];
 float lightPos[4] = {10.0f, 6.0f, 2.0f, 1.0f }; //position of point light in World coordinates
-
 
 // Sleigh
 float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
@@ -1242,6 +1244,43 @@ void renderSkyBox(void) {
 	glDepthMask(GL_TRUE);
 }
 
+void renderEnvironmentCube(void) {
+
+	GLint loc;
+
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+	glUniform4fv(loc, 1, environmentMesh.mat.ambient);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+	glUniform4fv(loc, 1, environmentMesh.mat.diffuse);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+	glUniform4fv(loc, 1, environmentMesh.mat.specular);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+	glUniform1f(loc, environmentMesh.mat.shininess);
+	pushMatrix(MODEL);
+	translate(MODEL, 20.0f, 0.0f, -7.0f);
+	scale(MODEL, 2.0f, 2.0f, 2.0f);
+
+	// send matrices to OGL
+	glUniformMatrix4fv(view_uniformId, 1, GL_FALSE, mMatrix[VIEW]);
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+	glUniform1i(texMode_uniformId, 13); //  Environmental cube mapping
+	if (!reflect_perFragment)
+		glUniform1i(reflect_perFragment_uniformId, 0); //reflected vector calculated in the vertex shader
+	else
+		glUniform1i(reflect_perFragment_uniformId, 1); //reflected vector calculated in the fragment shader
+
+	glBindVertexArray(environmentMesh.vao);
+	glDrawElements(environmentMesh.type, environmentMesh.numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	popMatrix(MODEL);
+}
+
 void renderRearView(void) {
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1504,6 +1543,7 @@ void renderScene(void) {
 
 	// Render objects
 	renderSkyBox();
+	renderEnvironmentCube();
 	renderTerrain();
 	renderHouses();
 	//renderTrees();
@@ -1886,6 +1926,7 @@ GLuint setupShaders() {
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
 	model_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_Model");
+	view_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_View");
 
 	// textures
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode");
@@ -1897,6 +1938,7 @@ GLuint setupShaders() {
 	tex_loc5 = glGetUniformLocation(shader.getProgramIndex(), "texmap5");
 	tex_loc6 = glGetUniformLocation(shader.getProgramIndex(), "texmap6");
 	tex_cube_loc = glGetUniformLocation(shader.getProgramIndex(), "cubeMap");
+	reflect_perFragment_uniformId = glGetUniformLocation(shader.getProgramIndex(), "reflect_perFrag"); //reflection vector calculated in the frag shader
 	//tex_normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
 
 	normalMap_loc = glGetUniformLocation(shader.getProgramIndex(), "normalMap");
@@ -2096,6 +2138,7 @@ void init()
 	amesh.mat.shininess = tree_shininess;
 	amesh.mat.texCount = texcount;
 	treesMeshes.push_back(amesh);
+
 	//
 	// SNOWBALL
 	//
@@ -2200,6 +2243,18 @@ void init()
 	amesh.mat.texCount = texcount;
 	skyboxMesh = amesh;
 
+	//
+	// ENVIRONMENT CUBE MAPPING
+	// 
+	amesh = createCube();
+	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	environmentMesh = amesh;
+
 
 	// initialize obstacles
 	for (int i = 0; i < 4; i++) {
@@ -2233,7 +2288,6 @@ void init()
 //
 // Main function
 //
-
 
 int main(int argc, char** argv) {
 

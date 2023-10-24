@@ -4,9 +4,11 @@ uniform mat4 m_pvm;
 uniform mat4 m_viewModel;
 uniform mat3 m_normal;
 uniform mat4 m_Model;   //por causa do cubo para a skybox
+uniform mat4 m_View;
 
 uniform bool normalMap;
 uniform int texMode;
+uniform int reflect_perFrag; //reflect vector calculated in the frag shader
 
 uniform vec4 directionalLight;
 
@@ -30,6 +32,7 @@ out Data {
 	vec3 lightDir[9];
 	vec2 tex_coord;
 	vec3 skyboxTexCoord;
+	vec3 reflected;
 } DataOut;
 
 void main () {
@@ -65,12 +68,16 @@ void main () {
 
 	}
 
-	else{
-
+	else {
 		DataOut.normal = normalize(m_normal * normal.xyz);
 		DataOut.eye = vec3(-pos);
 		DataOut.lightDir[0] = vec3(directionalLight);
 
+	}
+
+	if((texMode == 13) && (reflect_perFrag == 0)) {  //calculate here the reflected vector
+		DataOut.reflected = vec3 (transpose(m_View) * vec4 (vec3(reflect(-DataOut.eye, DataOut.normal)), 0.0)); //reflection vector in world coord
+		DataOut.reflected.x= -DataOut.reflected.x; // as texturas foram mapeadas no interior da skybox 
 	}
 
 	DataOut.lightDir[0] = vec3(directionalLight);
