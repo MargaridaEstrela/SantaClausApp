@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform sampler2D texmap;
 uniform sampler2D texmap1;
@@ -7,14 +7,13 @@ uniform sampler2D texmap3;
 uniform sampler2D texmap4;
 uniform sampler2D texmap5;
 uniform sampler2D texmap6;
-uniform samplerCube cubemap;
+uniform samplerCube cubeMap;
 uniform	sampler2D texUnitDiff;
 uniform	sampler2D texUnitDiff1;
 uniform	sampler2D texUnitSpec;
 uniform	sampler2D texUnitNormalMap;
 
 uniform int texMode;
-
 out vec4 colorOut;
 
 uniform mat4 m_View;
@@ -59,6 +58,8 @@ in Data {
 	vec3 eye;
 	vec3 lightDir[9];
 	vec2 tex_coord;
+	vec3 skyboxTexCoord;
+	vec3 reflected;
 } DataIn;
 
 void main() {
@@ -75,7 +76,7 @@ void main() {
 	vec4 texel, texel1, cube_texel;
 
 	vec3 n = normalize(DataIn.normal);
-	if(normalMap)
+	if(normalMap || texMode == 11)
 		n = normalize(2.0 * texture(texUnitNormalMap, DataIn.tex_coord).rgb - 1.0);  //normal in tangent space
 	else
 		n = normalize(DataIn.normal);
@@ -198,15 +199,36 @@ void main() {
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel*texel1 + spec, 0.07*texel*texel1) / attenuation;
 		} 
-		else // Flare
+		else if (texMode == 9) // Flare
 		{
 			texel = texture(texmap, DataIn.tex_coord);  //texel from element flare texture
 			if((texel.a == 0.0)  || (mat.diffuse.a == 0.0) ) discard;
 			else
 				colorOut = mat.diffuse * texel;
+		} 
+		else if (texMode == 10 || texMode == 11) // texMode==11 normal comes from normalMap, if ==10 means regular normal vector 
+		{
+			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
+			colorOut += min(intensity*texel + spec, 0.5*texel) / attenuation;
 		}
-
-
+		else if (texMode == 12) 
+		{
+			colorOut = texture(cubeMap, DataIn.skyboxTexCoord);
+		}
+		else if (texMode == 13)
+		{
+			if(reflect_perFrag == 1) {  //reflected vector calculated here
+				vec3 reflected1 = vec3 (transpose(m_View) * vec4 (vec3(reflect(-e, n)), 0.0)); //reflection vector in world coord
+				reflected1.x= -reflected1.x;   
+				cube_texel = texture(cubeMap, reflected1);
+			}
+			else
+				cube_texel = texture(cubeMap, DataIn.reflected); //use interpolated reflected vector calculated in vertex shader
+	
+			texel = texture(texmap4, DataIn.tex_coord);  // texel from lighwood.tga
+			vec4 aux_color = mix(texel, cube_texel, reflect_factor);
+			colorOut += max(intensity*aux_color + spec, 0.07*aux_color); 
+		}
 	}
 
 	if (fog) {

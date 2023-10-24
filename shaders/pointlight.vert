@@ -1,10 +1,14 @@
-#version 430
+#version 410
 
 uniform mat4 m_pvm;
 uniform mat4 m_viewModel;
 uniform mat3 m_normal;
+uniform mat4 m_Model;   //por causa do cubo para a skybox
+uniform mat4 m_View;
 
 uniform bool normalMap;
+uniform int texMode;
+uniform int reflect_perFrag; //reflect vector calculated in the frag shader
 
 uniform vec4 directionalLight;
 
@@ -19,7 +23,7 @@ uniform vec4 spotLightL;
 uniform vec4 spotLightR;
 
 in vec4 position;
-in vec4 normal, tangent, bitangent;		//por causa do gerador de geometria
+in vec4 normal, tangent;		//por causa do gerador de geometria
 in vec4 texCoord;
 
 out Data {
@@ -27,6 +31,8 @@ out Data {
 	vec3 eye;
 	vec3 lightDir[9];
 	vec2 tex_coord;
+	vec3 skyboxTexCoord;
+	vec3 reflected;
 } DataOut;
 
 void main () {
@@ -40,7 +46,7 @@ void main () {
 	eyeDir =  vec3(-pos);
 
 	// Bump Mapping
-	if(normalMap)  {  //convert eye and light vectors to tangent space
+	if(normalMap || texMode == 11)  {  //convert eye and light vectors to tangent space
 
 		//Calculate components of TBN basis in eye space
 		t = normalize(m_normal * tangent.xyz);  
@@ -62,12 +68,16 @@ void main () {
 
 	}
 
-	else{
-
+	else {
 		DataOut.normal = normalize(m_normal * normal.xyz);
 		DataOut.eye = vec3(-pos);
 		DataOut.lightDir[0] = vec3(directionalLight);
 
+	}
+
+	if((texMode == 13) && (reflect_perFrag == 0)) {  //calculate here the reflected vector
+		DataOut.reflected = vec3 (transpose(m_View) * vec4 (vec3(reflect(-DataOut.eye, DataOut.normal)), 0.0)); //reflection vector in world coord
+		DataOut.reflected.x= -DataOut.reflected.x; // as texturas foram mapeadas no interior da skybox 
 	}
 
 	DataOut.lightDir[0] = vec3(directionalLight);
@@ -80,6 +90,8 @@ void main () {
 	DataOut.lightDir[7] = vec3(spotLightL - pos);
 	DataOut.lightDir[8] = vec3(spotLightR - pos);
 
+	DataOut.skyboxTexCoord = vec3(m_Model * position);	//Transformação de modelação do cubo unitário 
+	DataOut.skyboxTexCoord.x = - DataOut.skyboxTexCoord.x; //Texturas mapeadas no interior logo negar a coordenada x
 	DataOut.tex_coord = texCoord.st;
 
 	gl_Position = m_pvm * position;	
