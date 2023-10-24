@@ -1515,27 +1515,16 @@ void renderScene(void) {
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
 
-	/*if (activeCam == 2) { // follow camera
+	if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
 		renderRearView();
 	}
 	else {
+		glStencilFunc(GL_EQUAL, 0x1, 0x1);
 		glDisable(GL_STENCIL_TEST);
-	}*/
-
-	glEnable(GL_STENCIL_TEST);
-	if (activeCam == 2) {
-		renderRearView();
 	}
-
-	if (activeCam == 2) {
-		glStencilFunc(GL_NOTEQUAL, 0x0, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-	}
-	else {
-		glStencilFunc(GL_ALWAYS, 0x1, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-	}
+	
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
 	// load identity matrices
 	loadIdentity(VIEW);
@@ -1614,73 +1603,67 @@ void renderScene(void) {
 
 	glEnable(GL_DEPTH_TEST);
 
-	if (true) {
-		glClear(GL_STENCIL_BUFFER_BIT);
-		createFloorStencil(GL_INCR);
-		glStencilFunc(GL_EQUAL, 0x2, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	//
+	// SHADOWS
+	//
 
-		mirrorLights();
-		loadLights();
+	glClear(GL_STENCIL_BUFFER_BIT);
+	createFloorStencil(GL_INCR);
+	glStencilFunc(GL_EQUAL, 0x2, 0x1);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-		loadIdentity(MODEL);
-		pushMatrix(MODEL);
-		scale(MODEL, 1.0f, -1.0f, 1.0f);
-		glCullFace(GL_FRONT);
+	mirrorLights();
+	loadLights();
 
-		renderHouses();
-		renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		renderFireworks();
+	loadIdentity(MODEL);
+	pushMatrix(MODEL);
+	scale(MODEL, 1.0f, -1.0f, 1.0f);
+	glCullFace(GL_FRONT);
 
-		glCullFace(GL_BACK);
-		popMatrix(MODEL);
+	renderHouses();
+	renderBillboards();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+	renderFireworks();
 
-		mirrorLights();
+	glCullFace(GL_BACK);
+	popMatrix(MODEL);
 
-		glClear(GL_STENCIL_BUFFER_BIT);
-		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	mirrorLights();
 
-		renderTerrain(true);
+	glClear(GL_STENCIL_BUFFER_BIT);
+	glStencilFunc(GL_EQUAL, 0x1, 0x1);
 
-		//float res[4];
+	renderTerrain(true);
 
-		glUniform1i(shadowMode_uniformId, 1);
-		//constProduct(10, directionalLight.pos, res);
+	glUniform1i(shadowMode_uniformId, 1);
 
-		shadow_matrix(mat, floor, directionalLight.pos);
-		glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
+	shadow_matrix(mat, floor, directionalLight.pos);
+	glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
 
-		//Dark the color stored in color buffer
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_DST_COLOR, GL_ZERO);
+	//Dark the color stored in color buffer
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
-		loadIdentity(MODEL);
-		pushMatrix(MODEL);
-		multMatrix(MODEL, mat);
+	loadIdentity(MODEL);
+	pushMatrix(MODEL);
+	multMatrix(MODEL, mat);
 
-		renderHouses();
-		//renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		//renderFireworks();
+	renderHouses();
+	//renderBillboards();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+	//renderFireworks();
 
-		popMatrix(MODEL);
+	popMatrix(MODEL);
 
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
 
-		//render the geometry
-		glUniform1i(shadowMode_uniformId, 0);
-	}
-	else {
-		renderTerrain(false);
-	}
-
-	//glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	//render the geometry
+	glUniform1i(shadowMode_uniformId, 0);
 
 	loadLights();
 	loadIdentity(MODEL);
