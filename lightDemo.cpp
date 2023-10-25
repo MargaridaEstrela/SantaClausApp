@@ -1677,10 +1677,11 @@ void renderScene(void) {
 		glEnable(GL_STENCIL_TEST);
 		renderRearView();
 	}
-	else {
-		glStencilFunc(GL_EQUAL, 0x1, 0x1);
-		glDisable(GL_STENCIL_TEST);
-	}
+
+	glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	//glDisable(GL_STENCIL_TEST);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
 
 	if (flareEffect && !spotLightsOn) {
 
