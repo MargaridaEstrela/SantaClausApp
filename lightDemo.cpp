@@ -529,7 +529,7 @@ void timer(int value)
 	}
 
 	score++;
-	glutTimerFunc(1 / delta_t, timer, 0);
+	glutTimerFunc(1000 / 60, timer, 0);
 }
 
 // ------------------------------------------------------------
@@ -1372,6 +1372,8 @@ void renderEnvironmentCube(void) {
 void renderRearView(void) {
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
 
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
@@ -1484,6 +1486,7 @@ void renderRearView(void) {
 	glStencilFunc(GL_EQUAL, 0x0, 0x1);
 
 	// Render objects
+	renderSkyBox();
 	renderTerrain(false);
 	renderHouses();
 	renderBillboards();
@@ -1506,7 +1509,7 @@ void renderRearView(void) {
 
 void renderScene(void) {
 
-	rear_view = !rear_view;
+	rear_view = false;
 	createStencil(WinX, WinY, 0x0);
 
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -1517,15 +1520,6 @@ void renderScene(void) {
 
 	pushMatrix(VIEW);
 	pushMatrix(MODEL);
-
-	if (activeCam == 2) { // follow camera
-		glEnable(GL_STENCIL_TEST);
-		renderRearView();
-	}
-	else {
-		glStencilFunc(GL_EQUAL, 0x1, 0x1);
-		glDisable(GL_STENCIL_TEST);
-	}
 
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
@@ -1697,6 +1691,15 @@ void renderScene(void) {
 		renderLamps();
 		renderFireworks();
 		//aiRecursive_render(scene, scene->mRootNode);
+	}
+
+	if (activeCam == 2) { // follow camera
+		glEnable(GL_STENCIL_TEST);
+		renderRearView();
+	}
+	else {
+		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+		glDisable(GL_STENCIL_TEST);
 	}
 
 	if (flareEffect && !spotLightsOn) {
