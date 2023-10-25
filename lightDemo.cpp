@@ -1344,7 +1344,7 @@ void renderEnvironmentCube(void) {
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, environmentMesh.mat.shininess);
 	pushMatrix(MODEL);
-	translate(MODEL, 20.0f, 0.0f, -7.0f);
+	translate(MODEL, 20.0f, 0.0f, -6.0f);
 	scale(MODEL, 2.0f, 2.0f, 2.0f);
 
 	// send matrices to OGL
@@ -1397,8 +1397,8 @@ void renderRearView(void) {
 	float cam_y = sleigh_y + 1.0f;
 	float cam_z = sleigh_z;
 
-	float target_x = sleigh_x + sleigh_direction_x * 2;
-	float target_y = sleigh_y + sleigh_direction_y * 2;
+	float target_x = sleigh_x - sleigh_direction_x * 2;
+	float target_y = sleigh_y - sleigh_direction_y * 2;
 	float target_z = sleigh_z + sleigh_direction_z * 2;
 
 	float pos[3] = { cam_x, cam_y, cam_z };

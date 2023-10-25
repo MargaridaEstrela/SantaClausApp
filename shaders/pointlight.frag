@@ -50,7 +50,7 @@ const float expo = 0.1;
 const float density = 0.1;
 const float gradient = 1.0;
 
-const vec4 shadowC = vec4(0, 0, 0, 0.6);
+const vec4 shadowC = vec4(0.2, 0.2, 0.2, 0.2);
 const float reflect_factor = 0.9;
 
 in Data {
