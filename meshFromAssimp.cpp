@@ -1,8 +1,23 @@
 /* --------------------------------------------------
 Functions to handle with struct MyMesh based meshes from Assimp meshes:
 	- import 3D files to Assimp meshes
-	- creation of Mymesh array with VAO/VBO Geometry and Material 
+	- creation of Mymesh array with VAO/VBO Geometry and Material
  * it supports 3D files with till 2 diffuse textures, 1 specular map and 1 normal map
+ *
+ * Some hints about Assimp:
+ * The Importer class forms an C++ interface to the functionality of the Open Asset Import Library.
+*Create an object of this class and call ReadFile() to import a file. If the import succeeds, the function returns
+*a pointer to the imported data. The data remains property of the importer object, it is intended to be accessed read-only.
+*The imported data will be destroyed along with the Importer object. If the import fails, ReadFile() returns a NULL pointer.
+*In this case you can retrieve a human-readable error description be calling GetErrorString().
+ * You can call ReadFile multiple times on a single Assimp::Importer object, but keep in mind
+ *that each invocation will free the previous aiScene. If you really want to stick to aiScene,
+ create a fresh importer object for each scene object and keep it alive (i.e. store a list of (scene, importer)
+ tuples somewhere) as long as needed.
+
+ *So declare an importer object as global in order to persist during whole application execution. Since we use the aiScene object
+ *during the RenderScne, it is not possible to use multiple scene objects with the same importer because each time we call importer.Readfile
+ *the previous scene object is replaced with the new one. Thus we need to create an importer object for each scene model.
  *
  João Madeiras Pereira
 ----------------------------------------------------*/
@@ -14,7 +29,7 @@ Functions to handle with struct MyMesh based meshes from Assimp meshes:
 // assimp include files. These three are usually needed.
 #include "assimp/Importer.hpp"	
 #include "assimp/postprocess.h"
-#include "assimp/scene.h"
+#include "assimp/scene.h" 
 
 #include "AVTmathLib.h"
 #include "VertexAttrDef.h"
@@ -24,25 +39,13 @@ Functions to handle with struct MyMesh based meshes from Assimp meshes:
 
 using namespace std;
 
-// Create an instance of the Importer class
-Assimp::Importer importer;
-// the global Assimp scene object
-const aiScene* scene = NULL;
-// scale factor for the Assimp model to fit in the window
-float scaleFactor;
-
-/* Directory name containing the OBJ file. The OBJ filename should be the same*/
+/* Directory name containing the current OBJ file. The OBJ filename should be the same*/
 extern char model_dir[50];
-
-
-// unordered map which maps image filenames to texture units TU. This map is filled in the  LoadGLTexturesTUs()
-unordered_map<std::string, GLuint> textureIdMap;
-
 
 #define aisgl_min(x,y) (x<y?x:y)
 #define aisgl_max(x,y) (y>x?y:x)
 
-void get_bounding_box_for_node(const aiNode* nd, aiVector3D* min, aiVector3D* max)
+void get_bounding_box_for_node(const aiNode* nd, const aiScene* scene, aiVector3D* min, aiVector3D* max)
 {
 	aiMatrix4x4 prev;
 	unsigned int n = 0, t;
@@ -64,25 +67,26 @@ void get_bounding_box_for_node(const aiNode* nd, aiVector3D* min, aiVector3D* ma
 	}
 
 	for (n = 0; n < nd->mNumChildren; ++n) {
-		get_bounding_box_for_node(nd->mChildren[n], min, max);
+		get_bounding_box_for_node(nd->mChildren[n], scene, min, max);
 	}
 }
 
 
-void get_bounding_box(aiVector3D* min, aiVector3D* max)
+void get_bounding_box(const aiScene* scene, aiVector3D* min, aiVector3D* max)
 {
 
 	min->x = min->y = min->z = 1e10f;
 	max->x = max->y = max->z = -1e10f;
-	get_bounding_box_for_node(scene->mRootNode, min, max);
+	get_bounding_box_for_node(scene->mRootNode, scene, min, max);
 }
 
-bool Import3DFromFile(const std::string& pFile)
+bool Import3DFromFile(const std::string& pFile, Assimp::Importer& importer, const aiScene*& scene, float& scaleFactor)
 {
-	
+	//const aiScene* scene = NULL;
+
 	scene = importer.ReadFile(pFile, aiProcessPreset_TargetRealtime_Quality);
 
-	// If the import failed, report it
+	// if the import fails, ReadFile() returns a NULL pointer.
 	if (!scene)
 	{
 		printf("%s\n", importer.GetErrorString());
@@ -93,7 +97,7 @@ bool Import3DFromFile(const std::string& pFile)
 	printf("Import of scene %s succeeded.\n", pFile.c_str());
 
 	aiVector3D scene_min, scene_max, scene_center;
-	get_bounding_box(&scene_min, &scene_max);
+	get_bounding_box(scene, &scene_min, &scene_max);
 	float tmp;
 	tmp = scene_max.x - scene_min.x;
 	tmp = scene_max.y - scene_min.y > tmp ? scene_max.y - scene_min.y : tmp;
@@ -105,7 +109,7 @@ bool Import3DFromFile(const std::string& pFile)
 }
 
 
-bool LoadGLTexturesTUs(const aiScene* scene)  // Create OGL textures objects and maps them to texture units.  
+bool LoadGLTexturesTUs(const aiScene*& scene, GLuint*& textureIds, unordered_map<std::string, GLuint>& textureIdMap)  // Create OGL textures objects and maps them to texture units.  
 {
 	aiString path;	// filename
 	string filename;
@@ -139,28 +143,31 @@ bool LoadGLTexturesTUs(const aiScene* scene)  // Create OGL textures objects and
 
 	}
 
+	
+
 	int numTextures = textureIdMap.size();
 	printf("numeros de mapas %d\n", numTextures);
-	if(numTextures) {
-		GLuint* textureIds = new GLuint[numTextures];
+	if (numTextures) {
+		textureIds = new GLuint[numTextures];
 		glGenTextures(numTextures, textureIds); /* Texture name generation */
 
 		/* get iterator */
 		unordered_map<std::string, GLuint>::iterator itr = textureIdMap.begin();
 		filename = (*itr).first;  // get filename
 
+		
+
+		printf("%s\n", filename.c_str());
+
 		//create the texture objects array and asssociate them with TU and place the TU in the key value of the map
 		for (int i = 0; itr != textureIdMap.end(); ++i, ++itr)
 		{
 			filename = (*itr).first;  // get filename
-			glActiveTexture(GL_TEXTURE0 + i);
-			Texture2D_Loader(textureIds, filename.c_str(), i);  //it already performs glBindTexture(GL_TEXTURE_2D, textureIds[i])
+			std::string path = "spider/" + filename;
+			Texture2D_Loader(textureIds, path.c_str(), i);  //it already performs glBindTexture(GL_TEXTURE_2D, textureIds[i])
 			(*itr).second = i;	  // save texture unit for filename in map
 			//printf("textura = %s  TU = %d\n", filename.c_str(), i);
 		}
-
-		//Cleanup
-		delete[] textureIds;
 	}
 	return true;
 }
@@ -187,15 +194,18 @@ void color4_to_float4(const aiColor4D* c, float f[4])
 	f[3] = c->a;
 }
 
-vector<struct MyMesh> createMeshFromAssimp(const aiScene* sc) {
+vector<struct MyMesh> createMeshFromAssimp(const aiScene*& sc, GLuint*& textureIds) {
 
 	vector<struct MyMesh> myMeshes;
-	struct MyMesh aMesh;
+
 	GLuint buffer;
+
+	// unordered map which maps image filenames to texture units TU. This map is filled in the  LoadGLTexturesTUs()
+	unordered_map<std::string, GLuint> textureIdMap;
 
 	printf("Cena: numero total de malhas = %d\n", sc->mNumMeshes);
 
-	LoadGLTexturesTUs(sc); //it creates the unordered map which maps image filenames to texture units TU
+	LoadGLTexturesTUs(sc, textureIds, textureIdMap); //it creates the unordered map which maps image filenames to texture units TU
 
 	// For each mesh
 	for (unsigned int n = 0; n < sc->mNumMeshes; ++n)
@@ -265,10 +275,8 @@ vector<struct MyMesh> createMeshFromAssimp(const aiScene* sc) {
 		if (mesh->HasTextureCoords(0)) {
 			float* texCoords = (float*)malloc(sizeof(float) * 2 * mesh->mNumVertices);
 			for (unsigned int k = 0; k < mesh->mNumVertices; ++k) {
-
 				texCoords[k * 2] = mesh->mTextureCoords[0][k].x;
 				texCoords[k * 2 + 1] = mesh->mTextureCoords[0][k].y;
-
 			}
 			glGenBuffers(1, &buffer);
 			glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -327,7 +335,7 @@ vector<struct MyMesh> createMeshFromAssimp(const aiScene* sc) {
 			TUcount++;
 		}
 
-	
+
 		float c[4];
 		set_float4(c, 0.8f, 0.8f, 0.8f, 1.0f);
 		aiColor4D diffuse;
@@ -362,6 +370,6 @@ vector<struct MyMesh> createMeshFromAssimp(const aiScene* sc) {
 	}
 	// cleaning up
 	textureIdMap.clear();
-	
+
 	return(myMeshes);
 }

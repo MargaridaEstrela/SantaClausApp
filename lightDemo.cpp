@@ -45,6 +45,7 @@
 #include "snowball.h"
 #include "obstacle.h"
 #include "AABB.h"
+
 #include "meshFromAssimp.h"
 #include "l3dBillboard.h"
 
@@ -58,12 +59,12 @@ using namespace std;
 #define frand()			((float)rand()/RAND_MAX)
 
 // Created an instance of the Importer class in the meshFromAssimp.cpp file
-extern Assimp::Importer importer;
+Assimp::Importer importer;
 // the global Assimp scene object
-extern const aiScene* scene;
+const aiScene* scene;
 char model_dir[50];  //initialized by the user input at the console
 // scale factor for the Assimp model to fit in the window
-extern float scaleFactor;
+float scaleFactor;
 
 int fireworks = 0;
 
@@ -114,7 +115,7 @@ int bumpmap = 0;
 const string font_name = "fonts/arial.ttf";
 
 //Meshes
-vector<struct MyMesh> myMeshes;
+//vector<struct MyMesh> myMeshes;
 vector<struct MyMesh> housesMeshes;
 vector<struct MyMesh> treesMeshes;
 vector<struct MyMesh> sleighMesh;
@@ -128,6 +129,7 @@ vector<struct MyMesh> fireworkMeshes;
 MyMesh flareMesh;
 MyMesh skyboxMesh;
 MyMesh environmentMesh;
+vector<struct MyMesh> spiderMesh;
 
 //Flare effect
 FLARE_DEF AVTflare;
@@ -156,6 +158,7 @@ GLint spotDir_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_loc7, tex_cube_loc, tex_normalMap_loc, tex_environmentMap_loc;
 GLint texMode_uniformId;
 GLuint TextureArray[9];
+GLuint* SpiderArray;
 
 GLint normalMap_loc;
 GLint specularMap_loc;
@@ -735,7 +738,7 @@ void createStencil(int h, int w, GLint ref) {
 
 // Recursive render of the Assimp Scene Graph
 
-void aiRecursive_render(const aiScene* sc, const aiNode* nd)
+void aiRecursive_render(const aiNode* nd, vector<struct MyMesh>& myMeshes, GLuint*& textureIds)
 {
 	GLint loc;
 
@@ -754,7 +757,6 @@ void aiRecursive_render(const aiScene* sc, const aiNode* nd)
 
 	// draw all meshes assigned to this node
 	for (unsigned int n = 0; n < nd->mNumMeshes; ++n) {
-
 
 		// send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -780,31 +782,37 @@ void aiRecursive_render(const aiScene* sc, const aiNode* nd)
 
 		if (myMeshes[nd->mMeshes[n]].mat.texCount != 0)
 			for (unsigned int i = 0; i < myMeshes[nd->mMeshes[n]].mat.texCount; ++i) {
+
+				//Activate a TU with a Texture Object
+				GLuint TU = myMeshes[nd->mMeshes[n]].texUnits[i];
+				glActiveTexture(GL_TEXTURE0 + TU);
+				glBindTexture(GL_TEXTURE_2D, SpiderArray[TU]);
+
 				if (myMeshes[nd->mMeshes[n]].texTypes[i] == DIFFUSE) {
 					if (diffMapCount == 0) {
 						diffMapCount++;
 						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
-						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1i(loc, TU);
 						glUniform1ui(diffMapCount_loc, diffMapCount);
 					}
 					else if (diffMapCount == 1) {
 						diffMapCount++;
 						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
-						glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+						glUniform1i(loc, TU);
 						glUniform1ui(diffMapCount_loc, diffMapCount);
 					}
 					else printf("Only supports a Material with a maximum of 2 diffuse textures\n");
 				}
 				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == SPECULAR) {
 					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
-					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+					glUniform1i(loc, TU);
 					glUniform1i(specularMap_loc, true);
 				}
 				else if (myMeshes[nd->mMeshes[n]].texTypes[i] == NORMALS) { //Normal map
 					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
 					if (normalMapKey)
 						glUniform1i(normalMap_loc, normalMapKey);
-					glUniform1i(loc, myMeshes[nd->mMeshes[n]].texUnits[i]);
+					glUniform1i(loc, TU);
 
 				}
 				else printf("Texture Map not supported\n");
@@ -831,7 +839,7 @@ void aiRecursive_render(const aiScene* sc, const aiNode* nd)
 
 	// draw all children
 	for (unsigned int n = 0; n < nd->mNumChildren; ++n) {
-		aiRecursive_render(sc, nd->mChildren[n]);
+		aiRecursive_render(nd->mChildren[n], myMeshes, SpiderArray);
 	}
 	popMatrix(MODEL);
 }
@@ -1399,7 +1407,7 @@ void renderRearView(void) {
 
 	float target_x = sleigh_x + sleigh_direction_x * 2;
 	float target_y = sleigh_y + sleigh_direction_y * 2;
-	float target_z = sleigh_z - sleigh_direction_z * 2;
+	float target_z = sleigh_z + sleigh_direction_z * 2;
 
 	float pos[3] = { cam_x, cam_y, cam_z };
 	float target[3] = { target_x, target_y, target_z };
@@ -1452,35 +1460,37 @@ void renderRearView(void) {
 
 	// Associate Texture Units to Texture Objects
 	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, leaf.jpeg in TU3
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE5);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE6);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
 
-	glActiveTexture(GL_TEXTURE2);
+	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
 
-	glActiveTexture(GL_TEXTURE3);
+	glActiveTexture(GL_TEXTURE8);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[3]);
 
-	glActiveTexture(GL_TEXTURE4);
+	glActiveTexture(GL_TEXTURE9);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[4]);
 
-	glActiveTexture(GL_TEXTURE5);
+	glActiveTexture(GL_TEXTURE9 + 1);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
-	glActiveTexture(GL_TEXTURE6);
+	glActiveTexture(GL_TEXTURE9 + 2);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[6]);
 
+	glActiveTexture(GL_TEXTURE9 + 3);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[7]);
 
-	glUniform1i(tex_loc, 0);
-	glUniform1i(tex_loc1, 1);
-	glUniform1i(tex_loc2, 2);
-	glUniform1i(tex_loc3, 3);
-	glUniform1i(tex_loc4, 4);
-	glUniform1i(tex_loc5, 5);
-	glUniform1i(tex_loc6, 6);
+	glUniform1i(tex_loc, 5);
+	glUniform1i(tex_loc1, 6);
+	glUniform1i(tex_loc2, 7);
+	glUniform1i(tex_loc3, 8);
+	glUniform1i(tex_loc4, 9);
+	glUniform1i(tex_loc5, 10);
+	glUniform1i(tex_loc6, 11);
 
 	glStencilFunc(GL_EQUAL, 0x0, 0x1);
 
@@ -1560,38 +1570,45 @@ void renderScene(void) {
 
 	// Associate Texture Units to Texture Objects
 	// snow.png loaded in TU0; roof.png loaded in TU1; lightwood.tga in TU2, tree.png in TU3
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE5);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE6);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
 
-	glActiveTexture(GL_TEXTURE2);
+	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);
 
-	glActiveTexture(GL_TEXTURE3);
+	glActiveTexture(GL_TEXTURE8);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[3]);
 
-	glActiveTexture(GL_TEXTURE4);
+	glActiveTexture(GL_TEXTURE9);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[4]);
 
-	glActiveTexture(GL_TEXTURE5);
+	glActiveTexture(GL_TEXTURE9+1);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
-	glActiveTexture(GL_TEXTURE6);
+	glActiveTexture(GL_TEXTURE9 + 2);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[6]);
 
-	glActiveTexture(GL_TEXTURE7);
+	glActiveTexture(GL_TEXTURE9 + 3);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, TextureArray[7]);
 
-	glUniform1i(tex_loc, 0);
-	glUniform1i(tex_loc1, 1);
-	glUniform1i(tex_loc2, 2);
-	glUniform1i(tex_loc3, 3);
-	glUniform1i(tex_loc4, 4);
-	glUniform1i(tex_loc5, 5);
-	glUniform1i(tex_loc6, 6);
-	glUniform1i(tex_cube_loc, 7);
+	glUniform1i(tex_loc, 5);
+	glUniform1i(tex_loc1, 6);
+	glUniform1i(tex_loc2, 7);
+	glUniform1i(tex_loc3, 8);
+	glUniform1i(tex_loc4, 9);
+	glUniform1i(tex_loc5, 10);
+	glUniform1i(tex_loc6, 11);
+	glUniform1i(tex_cube_loc, 12);
+
+
+	// sets the model matrix to a scale matrix so that the model fits in the window
+	pushMatrix(MODEL);
+	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
+	popMatrix(MODEL);
 
 	float mat[16];
 	GLfloat floor[4] = { 0, 1, 0, 0 };
@@ -2174,6 +2191,7 @@ void init()
 	//Sky Box Texture Object
 	const char* filenames[] = { "posx.jpg", "negx.jpg", "posy.jpg", "negy.jpg", "posz.jpg", "negz.jpg" };
 	TextureCubeMap_Loader(TextureArray, filenames, 7);
+	std::cout << "loaded" << std::endl;
 
 	//Flare elements textures
 	glGenTextures(5, FlareTextureArray);
@@ -2190,13 +2208,6 @@ void init()
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
-
-	//import 3D file into Assimp scene graph
-	/*std::string filepath = "house/house.obj";
-	if (!Import3DFromFile(filepath))
-		return;
-
-	myMeshes = createMeshFromAssimp(scene);*/
 
 	//
 	// TERRAIN
@@ -2383,6 +2394,15 @@ void init()
 	amesh.mat.shininess = shininess;
 	amesh.mat.texCount = texcount;
 	environmentMesh = amesh;
+
+	std::string filepath = "spider/spider.obj";
+
+	//import 3D file into Assimp scene graph
+	if (!Import3DFromFile(filepath, importer, scene, scaleFactor))
+		return;
+
+	//creation of Mymesh array with VAO Geometry and Material and array of Texture Objs for the model input by the user
+	spiderMesh = createMeshFromAssimp(scene, SpiderArray);
 
 
 	// initialize obstacles
