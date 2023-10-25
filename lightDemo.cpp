@@ -109,7 +109,6 @@ VSShaderLib shaderText;		//render bitmap text
 
 bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
 int bumpmap = 0;
-bool rear_view = false;
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
@@ -1509,7 +1508,6 @@ void renderRearView(void) {
 
 void renderScene(void) {
 
-	rear_view = false;
 	createStencil(WinX, WinY, 0x0);
 
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -1603,95 +1601,77 @@ void renderScene(void) {
 	//
 	// SHADOWS
 	//
+	glClear(GL_STENCIL_BUFFER_BIT);
+	createFloorStencil(GL_INCR);
+	glStencilFunc(GL_EQUAL, 0x2, 0x1);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-	if (rear_view && activeCam == 2) {
-		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	mirrorLights();
+	loadLights();
 
-		// Render objects
-		renderSkyBox();
-		renderEnvironmentCube();
-		renderTerrain(true);
-		renderHouses();
-		//renderTrees();
-		renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		renderFireworks();
-	}
-	else {
-		glClear(GL_STENCIL_BUFFER_BIT);
-		createFloorStencil(GL_INCR);
-		glStencilFunc(GL_EQUAL, 0x2, 0x1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	loadIdentity(MODEL);
+	pushMatrix(MODEL);
+	scale(MODEL, 1.0f, -1.0f, 1.0f);
+	glCullFace(GL_FRONT);
 
-		mirrorLights();
-		loadLights();
+	renderHouses();
+	renderBillboards();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+	renderFireworks();
 
-		loadIdentity(MODEL);
-		pushMatrix(MODEL);
-		scale(MODEL, 1.0f, -1.0f, 1.0f);
-		glCullFace(GL_FRONT);
+	glCullFace(GL_BACK);
+	popMatrix(MODEL);
 
-		renderHouses();
-		renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		renderFireworks();
+	mirrorLights();
 
-		glCullFace(GL_BACK);
-		popMatrix(MODEL);
+	glClear(GL_STENCIL_BUFFER_BIT);
+	glStencilFunc(GL_EQUAL, 0x1, 0x1);
 
-		mirrorLights();
+	renderTerrain(true);
 
-		glClear(GL_STENCIL_BUFFER_BIT);
-		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+	glUniform1i(shadowMode_uniformId, 1);
 
-		renderTerrain(true);
+	shadow_matrix(mat, floor, directionalLight.pos);
+	glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
 
-		glUniform1i(shadowMode_uniformId, 1);
+	//Dark the color stored in color buffer
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
-		shadow_matrix(mat, floor, directionalLight.pos);
-		glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
+	loadIdentity(MODEL);
+	pushMatrix(MODEL);
+	multMatrix(MODEL, mat);
 
-		//Dark the color stored in color buffer
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_DST_COLOR, GL_ZERO);
+	renderHouses();
+	//renderBillboards();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+	//renderFireworks();
 
-		loadIdentity(MODEL);
-		pushMatrix(MODEL);
-		multMatrix(MODEL, mat);
+	popMatrix(MODEL);
 
-		renderHouses();
-		//renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		//renderFireworks();
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
 
-		popMatrix(MODEL);
+	//render the geometry
+	glUniform1i(shadowMode_uniformId, 0);
 
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
+	loadLights();
+	loadIdentity(MODEL);
 
-		//render the geometry
-		glUniform1i(shadowMode_uniformId, 0);
-
-		loadLights();
-		loadIdentity(MODEL);
-
-		// Render objects
-		renderSkyBox();
-		renderEnvironmentCube();
-		renderHouses();
-		renderBillboards();
-		renderSleigh();
-		renderSnowballs();
-		renderLamps();
-		renderFireworks();
-		//aiRecursive_render(scene, scene->mRootNode);
-	}
+	// Render objects
+	renderSkyBox();
+	renderEnvironmentCube();
+	renderHouses();
+	renderBillboards();
+	renderSleigh();
+	renderSnowballs();
+	renderLamps();
+	renderFireworks();
+	//aiRecursive_render(scene, scene->mRootNode);
 
 	if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
