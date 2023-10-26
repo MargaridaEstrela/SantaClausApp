@@ -129,7 +129,7 @@ vector<struct MyMesh> fireworkMeshes;
 MyMesh flareMesh;
 MyMesh skyboxMesh;
 MyMesh environmentMesh;
-vector<struct MyMesh> spiderMesh;
+vector<struct MyMesh> modelMesh;
 
 //Flare effect
 FLARE_DEF AVTflare;
@@ -158,7 +158,7 @@ GLint spotDir_uniformId;
 GLint tex_loc, tex_loc1, tex_loc2, tex_loc3, tex_loc4, tex_loc5, tex_loc6, tex_loc7, tex_cube_loc, tex_normalMap_loc, tex_environmentMap_loc;
 GLint texMode_uniformId;
 GLuint TextureArray[9];
-GLuint* SpiderArray;
+GLuint* SleighArray;
 
 GLint normalMap_loc;
 GLint specularMap_loc;
@@ -178,7 +178,7 @@ int trees_num = 36;
 
 // Cameras
 Camera cams[3];
-float camera_dist = 6.5f, camera_height = 5.0f;
+float camera_dist = 4.7f, camera_height = 2.15f;
 float camX, camY, camZ;
 int activeCam = 0;
 
@@ -786,7 +786,7 @@ void aiRecursive_render(const aiNode* nd, vector<struct MyMesh>& myMeshes, GLuin
 				//Activate a TU with a Texture Object
 				GLuint TU = myMeshes[nd->mMeshes[n]].texUnits[i];
 				glActiveTexture(GL_TEXTURE0 + TU);
-				glBindTexture(GL_TEXTURE_2D, SpiderArray[TU]);
+				glBindTexture(GL_TEXTURE_2D, SleighArray[TU]);
 
 				if (myMeshes[nd->mMeshes[n]].texTypes[i] == DIFFUSE) {
 					if (diffMapCount == 0) {
@@ -839,7 +839,7 @@ void aiRecursive_render(const aiNode* nd, vector<struct MyMesh>& myMeshes, GLuin
 
 	// draw all children
 	for (unsigned int n = 0; n < nd->mNumChildren; ++n) {
-		aiRecursive_render(nd->mChildren[n], myMeshes, SpiderArray);
+		aiRecursive_render(nd->mChildren[n], myMeshes, SleighArray);
 	}
 	popMatrix(MODEL);
 }
@@ -1635,10 +1635,10 @@ void renderScene(void) {
 	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
 	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
 	rotate(MODEL, 90, 0, 1, 0);
 
-	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
+	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
 
 	glCullFace(GL_BACK);
 	popMatrix(MODEL);
@@ -1674,10 +1674,10 @@ void renderScene(void) {
 	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
 	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
 	rotate(MODEL, 90, 0, 1, 0);
 
-	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
+	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
 
 	popMatrix(MODEL);
 
@@ -1704,10 +1704,10 @@ void renderScene(void) {
 	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
 	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
 	rotate(MODEL, 90, 0, 1, 0);
 
-	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
+	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
 
 	if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
@@ -2420,8 +2420,10 @@ void init()
 	if (!Import3DFromFile(filepath, importer, scene, scaleFactor))
 		return;
 
-	//creation of Mymesh array with VAO Geometry and Material and array of Texture Objs for the model input by the user
-	spiderMesh = createMeshFromAssimp(scene, SpiderArray);
+	strcpy(model_dir, "sleigh/");
+
+	//creation of modelMesh array with VAO Geometry and Material and array of Texture Objs for the model input by the user
+	modelMesh = createMeshFromAssimp(scene, SleighArray);
 
 
 	// initialize obstacles

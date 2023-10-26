@@ -120,34 +120,8 @@ void main() {
 		else intensity *= 0.6;						// pointlights
 	
 		colorOut += max(intensity * mat.diffuse + spec, mat.ambient) / attenuation;
-
-		/*if(mat.texCount != 0)
-		{
-			vec4 diff, auxSpec;
-
-			if(diffMapCount == 0)
-				diff = mat.diffuse;
-			else if(diffMapCount == 1)
-				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord);
-			else
-				diff = mat.diffuse * texture(texUnitDiff, DataIn.tex_coord) * texture(texUnitDiff1, DataIn.tex_coord);
-
-			if(specularMap) 
-				auxSpec = mat.specular * texture(texUnitSpec, DataIn.tex_coord);
-			else
-				auxSpec = mat.specular;
-
-			if (intensity > 0.0) {
-				vec3 h = normalize(l + e);
-				float intSpec = max(dot(h,n), 0.0);
-				spec = auxSpec * pow(intSpec, mat.shininess);
-				
-			}
-
-			colorOut = vec4((max(intensity * diff, diff*0.15) + spec).rgb, 1.0);
-			return;
-		}
-		else*/ if (texMode == 0) // modulate diffuse color with texel color
+		
+		if (texMode == 0) // modulate diffuse color with texel color
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
