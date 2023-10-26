@@ -143,8 +143,6 @@ bool LoadGLTexturesTUs(const aiScene*& scene, GLuint*& textureIds, unordered_map
 
 	}
 
-	
-
 	int numTextures = textureIdMap.size();
 	printf("numeros de mapas %d\n", numTextures);
 	if (numTextures) {
@@ -154,19 +152,16 @@ bool LoadGLTexturesTUs(const aiScene*& scene, GLuint*& textureIds, unordered_map
 		/* get iterator */
 		unordered_map<std::string, GLuint>::iterator itr = textureIdMap.begin();
 		filename = (*itr).first;  // get filename
-
-		
-
 		printf("%s\n", filename.c_str());
 
 		//create the texture objects array and asssociate them with TU and place the TU in the key value of the map
 		for (int i = 0; itr != textureIdMap.end(); ++i, ++itr)
 		{
 			filename = (*itr).first;  // get filename
-			std::string path = "spider/" + filename;
+			std::string path = "sleigh/" + filename;
 			Texture2D_Loader(textureIds, path.c_str(), i);  //it already performs glBindTexture(GL_TEXTURE_2D, textureIds[i])
 			(*itr).second = i;	  // save texture unit for filename in map
-			//printf("textura = %s  TU = %d\n", filename.c_str(), i);
+			printf("textura = %s  TU = %d\n", filename.c_str(), i);
 		}
 	}
 	return true;

@@ -178,7 +178,7 @@ int trees_num = 36;
 
 // Cameras
 Camera cams[3];
-float camera_dist = 5.0f, camera_height = 2.0f;
+float camera_dist = 6.5f, camera_height = 5.0f;
 float camX, camY, camZ;
 int activeCam = 0;
 
@@ -210,7 +210,7 @@ float lightPos[4] = { 10.0f, 6.0f, 2.0f, 1.0f }; //position of point light in Wo
 
 // Sleigh
 float sleigh_length = 3.0f, sleigh_width = 2.0f, sleigh_height = 2.0f;
-float init_x = 10.0f, init_y = 0.0f, init_z = 10.0f;
+float init_x = 10.f, init_y = 0.0f, init_z = 10.0f;
 float sleigh_x = init_x, sleigh_y = init_y, sleigh_z = init_z;
 float sleigh_angle_v = 0.0f, sleigh_angle_h = 0.0f;
 float sleigh_speed = 0.0f, max_speed = 10.0f;
@@ -1603,13 +1603,6 @@ void renderScene(void) {
 	glUniform1i(tex_loc6, 11);
 	glUniform1i(tex_cube_loc, 12);
 
-
-	// sets the model matrix to a scale matrix so that the model fits in the window
-	//pushMatrix(MODEL);
-	//scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
-	//aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
-	//popMatrix(MODEL);
-
 	float mat[16];
 	GLfloat floor[4] = { 0, 1, 0, 0 };
 
@@ -1633,11 +1626,18 @@ void renderScene(void) {
 
 	renderHouses();
 	renderBillboards();
-	renderSleigh();
+	//renderSleigh();
 	renderSnowballs();
 	renderLamps();
 	renderFireworks();
-	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+
+	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+
+	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	rotate(MODEL, 90, 0, 1, 0);
+
 	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	glCullFace(GL_BACK);
@@ -1665,11 +1665,18 @@ void renderScene(void) {
 
 	renderHouses();
 	//renderBillboards();
-	renderSleigh();
+	//renderSleigh();
 	renderSnowballs();
 	renderLamps();
 	//renderFireworks();
-	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+
+	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+
+	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	rotate(MODEL, 90, 0, 1, 0);
+
 	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	popMatrix(MODEL);
@@ -1688,11 +1695,18 @@ void renderScene(void) {
 	renderEnvironmentCube();
 	renderHouses();
 	renderBillboards();
-	renderSleigh();
+	//renderSleigh();
 	renderSnowballs();
 	renderLamps();
 	renderFireworks();
-	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+
+	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+
+	scale(MODEL, scaleFactor * 6.0f, scaleFactor * 6.0f, scaleFactor * 6.0f);
+	rotate(MODEL, 90, 0, 1, 0);
+
 	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	if (activeCam == 2) { // follow camera
@@ -2181,7 +2195,7 @@ void init()
 	float cam2_z = -sleigh_direction_z * camera_dist;
 
 	cams[2].setCameraPosition(cam2_x, cam2_y, cam2_z);
-	cams[2].setCameraTarget(sleigh_x, sleigh_y, sleigh_z);
+	cams[2].setCameraTarget(sleigh_x, sleigh_y + 10.0f, sleigh_z);
 	cams[2].setCameraType(0);
 
 	glGenTextures(8, TextureArray);
