@@ -1501,7 +1501,7 @@ void renderRearView(void) {
 	renderBillboards();
 	renderSleigh();
 	renderSnowballs();
-	renderLamps(); 
+	renderLamps();
 
 	//viewer at origin looking down at  negative z direction
 	pushMatrix(MODEL);
@@ -1585,7 +1585,7 @@ void renderScene(void) {
 	glActiveTexture(GL_TEXTURE9);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[4]);
 
-	glActiveTexture(GL_TEXTURE9+1);
+	glActiveTexture(GL_TEXTURE9 + 1);
 	glBindTexture(GL_TEXTURE_2D, TextureArray[5]);
 
 	glActiveTexture(GL_TEXTURE9 + 2);
@@ -1605,10 +1605,10 @@ void renderScene(void) {
 
 
 	// sets the model matrix to a scale matrix so that the model fits in the window
-	pushMatrix(MODEL);
-	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
-	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
-	popMatrix(MODEL);
+	//pushMatrix(MODEL);
+	//scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+	//aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
+	//popMatrix(MODEL);
 
 	float mat[16];
 	GLfloat floor[4] = { 0, 1, 0, 0 };
@@ -1637,6 +1637,8 @@ void renderScene(void) {
 	renderSnowballs();
 	renderLamps();
 	renderFireworks();
+	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	glCullFace(GL_BACK);
 	popMatrix(MODEL);
@@ -1667,6 +1669,8 @@ void renderScene(void) {
 	renderSnowballs();
 	renderLamps();
 	//renderFireworks();
+	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	popMatrix(MODEL);
 
@@ -1688,7 +1692,8 @@ void renderScene(void) {
 	renderSnowballs();
 	renderLamps();
 	renderFireworks();
-	//aiRecursive_render(scene, scene->mRootNode);
+	scale(MODEL, scaleFactor, scaleFactor, scaleFactor);
+	aiRecursive_render(scene->mRootNode, spiderMesh, SpiderArray);
 
 	if (activeCam == 2) { // follow camera
 		glEnable(GL_STENCIL_TEST);
@@ -2395,7 +2400,7 @@ void init()
 	amesh.mat.texCount = texcount;
 	environmentMesh = amesh;
 
-	std::string filepath = "spider/spider.obj";
+	std::string filepath = "sleigh/sleigh.obj";
 
 	//import 3D file into Assimp scene graph
 	if (!Import3DFromFile(filepath, importer, scene, scaleFactor))
