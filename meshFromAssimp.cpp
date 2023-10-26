@@ -114,38 +114,30 @@ bool LoadGLTexturesTUs(const aiScene*& scene, GLuint*& textureIds, unordered_map
 {
 	aiString path;	// filename
 	string filename;
-	printf("model_dir: %s\n", model_dir);
-	printf("num_materials: %d\n", scene->mNumMaterials);
 
 	/* scan scene's materials for textures */
 	for (unsigned int m = 0; m < scene->mNumMaterials; ++m)
 	{
 		// o fragment shader suporta material com duas texturas difusas, 1 especular e 1 normal map
 		for (unsigned int i = 0; i < scene->mMaterials[m]->GetTextureCount(aiTextureType_DIFFUSE); i++) {
-			printf("diffuse\n");
 			scene->mMaterials[m]->GetTexture(aiTextureType_DIFFUSE, i, &path);
 			filename = model_dir;
 			filename.append(path.data);
-			printf("filename: %s\n", filename);
 			//fill map with textures, OpenGL image ids set to 0
 			textureIdMap[filename] = 0;
 		}
 
 		for (unsigned int i = 0; i < scene->mMaterials[m]->GetTextureCount(aiTextureType_SPECULAR); i++) {
-			printf("specular\n");
 			scene->mMaterials[m]->GetTexture(aiTextureType_SPECULAR, i, &path);
 			filename = model_dir;
 			filename.append(path.data);
-			printf("filename: %s\n", filename);
-			textureIdMap[filename] = 0;
+ 			textureIdMap[filename] = 0;
 		}
 
 		for (unsigned int i = 0; i < scene->mMaterials[m]->GetTextureCount(aiTextureType_NORMALS); i++) {
-			printf("normal\n");
 			scene->mMaterials[m]->GetTexture(aiTextureType_NORMALS, i, &path);
 			filename = model_dir;
 			filename.append(path.data);
-			printf("filename: %s\n", filename);
 			textureIdMap[filename] = 0;
 		}
 
@@ -162,14 +154,12 @@ bool LoadGLTexturesTUs(const aiScene*& scene, GLuint*& textureIds, unordered_map
 		/* get iterator */
 		unordered_map<std::string, GLuint>::iterator itr = textureIdMap.begin();
 		filename = (*itr).first;  // get filename
-		printf("%s\n", filename.c_str());
 
 		//create the texture objects array and asssociate them with TU and place the TU in the key value of the map
 		for (int i = 0; itr != textureIdMap.end(); ++i, ++itr)
 		{
 			filename = (*itr).first;  // get filename
 			std::string path = "sleigh/" + filename;
-			printf("%s\n", path);
 			Texture2D_Loader(textureIds, path.c_str(), i);  //it already performs glBindTexture(GL_TEXTURE_2D, textureIds[i])
 			(*itr).second = i;	  // save texture unit for filename in map
 			printf("textura = %s  TU = %d\n", filename.c_str(), i);
