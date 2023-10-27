@@ -225,6 +225,7 @@ float tree_height = 4.0f, tree_width = 1.8f;
 vector<struct Obstacle> trees;
 float lamp_height = 2.5f, lamp_width = 0.5f;
 vector<struct Obstacle> lamps;
+Obstacle cube;
 bool collision = false;
 bool isHit = false;
 int keyUp = 0;
@@ -434,6 +435,11 @@ bool checkCollisions(float x, float y, float z) {
 			lamps[i].updateObstaclePosition(sleigh_aabb, sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
 			return true;
 		}
+	}
+
+	if (cube.getObstacleAABB().intersects(sleigh_aabb)) {
+		cube.updateObstaclePosition(sleigh_aabb, sin(sleigh_angle_h * 3.14f / 180), cos(sleigh_angle_h * 3.14f / 180), sleigh_speed, delta_t);
+		return true;
 	}
 
 	return false;
@@ -1352,7 +1358,7 @@ void renderEnvironmentCube(void) {
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, environmentMesh.mat.shininess);
 	pushMatrix(MODEL);
-	translate(MODEL, 18.0f, 1.0f, -6.0f);
+	translate(MODEL, cube.pos[0], 0, cube.pos[1]);
 	scale(MODEL, 2.0f, 2.0f, 2.0f);
 
 	// send matrices to OGL
@@ -1608,84 +1614,90 @@ void renderScene(void) {
 
 	glEnable(GL_DEPTH_TEST);
 
-	//
-	// SHADOWS
-	//
-	glClear(GL_STENCIL_BUFFER_BIT);
-	createFloorStencil(GL_INCR);
-	glStencilFunc(GL_EQUAL, 0x2, 0x1);
-	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	if (spotLightsOn || pointLightsOn || directionalLightOn) {
+		//
+		// SHADOWS
+		//
+		glClear(GL_STENCIL_BUFFER_BIT);
+		createFloorStencil(GL_INCR);
+		glStencilFunc(GL_EQUAL, 0x2, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-	mirrorLights();
-	loadLights();
+		mirrorLights();
+		loadLights();
 
-	loadIdentity(MODEL);
-	pushMatrix(MODEL);
-	scale(MODEL, 1.0f, -1.0f, 1.0f);
-	glCullFace(GL_FRONT);
+		loadIdentity(MODEL);
+		pushMatrix(MODEL);
+		scale(MODEL, 1.0f, -1.0f, 1.0f);
+		glCullFace(GL_FRONT);
 
-	renderHouses();
-	renderBillboards();
-	//renderSleigh();
-	renderSnowballs();
-	renderLamps();
-	renderFireworks();
+		renderEnvironmentCube();
+		renderHouses();
+		renderBillboards();
+		//renderSleigh();
+		renderSnowballs();
+		renderLamps();
+		renderFireworks();
 
-	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
-	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
-	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+		translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+		rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+		rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
-	rotate(MODEL, 90, 0, 1, 0);
+		scale(MODEL, scaleFactor * sleigh_width, scaleFactor * sleigh_height, scaleFactor * sleigh_length);
+		rotate(MODEL, 90, 0, 1, 0);
 
-	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
+		aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
 
-	glCullFace(GL_BACK);
-	popMatrix(MODEL);
+		glCullFace(GL_BACK);
+		popMatrix(MODEL);
 
-	mirrorLights();
+		mirrorLights();
 
-	glClear(GL_STENCIL_BUFFER_BIT);
-	glStencilFunc(GL_EQUAL, 0x1, 0x1);
+		glClear(GL_STENCIL_BUFFER_BIT);
+		glStencilFunc(GL_EQUAL, 0x1, 0x1);
 
-	renderTerrain(true);
+		renderTerrain(true);
 
-	glUniform1i(shadowMode_uniformId, 1);
+		glUniform1i(shadowMode_uniformId, 1);
 
-	shadow_matrix(mat, floor, directionalLight.pos);
-	glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
+		shadow_matrix(mat, floor, directionalLight.pos);
+		glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
 
-	//Dark the color stored in color buffer
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_DST_COLOR, GL_ZERO);
+		//Dark the color stored in color buffer
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
-	loadIdentity(MODEL);
-	pushMatrix(MODEL);
-	multMatrix(MODEL, mat);
+		loadIdentity(MODEL);
+		pushMatrix(MODEL);
+		multMatrix(MODEL, mat);
 
-	renderHouses();
-	//renderBillboards();
-	//renderSleigh();
-	renderSnowballs();
-	renderLamps();
-	//renderFireworks();
+		renderEnvironmentCube();
+		renderHouses();
+		//renderBillboards();
+		//renderSleigh();
+		renderSnowballs();
+		renderLamps();
+		//renderFireworks();
 
-	translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
-	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
-	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+		translate(MODEL, sleigh_x, sleigh_y, sleigh_z);
+		rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
+		rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
+		scale(MODEL, scaleFactor * sleigh_width, scaleFactor * sleigh_height, scaleFactor * sleigh_length);
+		rotate(MODEL, 90, 0, 1, 0);
 
-	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
-	rotate(MODEL, 90, 0, 1, 0);
+		aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
 
-	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
+		popMatrix(MODEL);
 
-	popMatrix(MODEL);
+		glDisable(GL_BLEND);
+		glEnable(GL_DEPTH_TEST);
 
-	glDisable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
-
-	//render the geometry
-	glUniform1i(shadowMode_uniformId, 0);
+		//render the geometry
+		glUniform1i(shadowMode_uniformId, 0);
+	}
+	else {
+		renderTerrain(false);
+	}
 
 	loadLights();
 	loadIdentity(MODEL);
@@ -1704,7 +1716,7 @@ void renderScene(void) {
 	rotate(MODEL, sleigh_angle_h, 0.0f, 1.0f, 0.0f);
 	rotate(MODEL, sleigh_angle_v, 1.0f, 0.0f, 0.0f);
 
-	scale(MODEL, scaleFactor * 3.5f, scaleFactor * 3.5f, scaleFactor * 3.5f);
+	scale(MODEL, scaleFactor * sleigh_width, scaleFactor * sleigh_height, scaleFactor * sleigh_length);
 	rotate(MODEL, 90, 0, 1, 0);
 
 	aiRecursive_render(scene->mRootNode, modelMesh, SleighArray);
@@ -2444,13 +2456,15 @@ void init()
 		lamps.push_back(lamp);
 	}
 
+	cube = Obstacle(18.0f, -6.0f, 2.0f, 2.0f, 2.0f);
+
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearColor(0, 0, 0, 1.0f);
 	glClearStencil(1);
 }
 

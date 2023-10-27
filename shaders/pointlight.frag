@@ -1,4 +1,4 @@
-#version 410
+#version 430
 
 uniform sampler2D texmap;
 uniform sampler2D texmap1;
@@ -126,7 +126,7 @@ void main() {
 			texel = texture(texmap, DataIn.tex_coord);  // texel from lighwood.tga
 			texel1 = texture(texmap, DataIn.tex_coord);  // texel from snow.jpeg
 			colorOut += max(intensity*texel + intensity*texel1 + spec, 0.07*texel*texel1) / attenuation;
-			colorOut[3] = 0.3;
+			colorOut[3] = 0.8;
 		} 
 		else if (texMode == 1) // Roof
 		{
@@ -212,7 +212,7 @@ void main() {
 		visibility = clamp(visibility, 0.0, 1.0);
 
 		if (shadowMode)
-			colorOut = mix(vec4(.9, .9, .9, 1), shadowC, visibility);
+			colorOut = mix(vec4(0.3, 0.3, 0.3, 1), shadowC, visibility);
 		else
 			colorOut = mix(vec4(0.5, 0.5, 0.5, 1), colorOut, visibility);
 	}
