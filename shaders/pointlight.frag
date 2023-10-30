@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform sampler2D texmap;
 uniform sampler2D texmap1;
@@ -183,7 +183,7 @@ void main() {
 		else if (texMode == 10 || texMode == 11) // texMode==11 normal comes from normalMap, if ==10 means regular normal vector 
 		{
 			texel = texture(texmap, DataIn.tex_coord);  // texel from snow.png
-			colorOut += min(intensity*texel + spec, 0.5*texel) / attenuation;
+			colorOut += max(intensity*texel + spec, 0.5*texel) / attenuation;
 		}
 		else if (texMode == 12) 
 		{

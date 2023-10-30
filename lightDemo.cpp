@@ -109,7 +109,7 @@ VSShaderLib shader;			//geometry
 VSShaderLib shaderText;		//render bitmap text
 
 bool normalMapKey = TRUE; // by default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
-int bumpmap = 0;
+int bumpmap = 1;
 
 //File with the font
 const string font_name = "fonts/arial.ttf";
